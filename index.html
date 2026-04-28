@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>운동 세션 기록기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --text: #1f2330;
+    --muted: #6b7280;
+    --accent: #3a6df0;
+    --accent-soft: #e6edff;
+    --border: #e5e7eb;
+    --danger: #d64545;
+    --ok: #2e8b57;
+    --shadow: 0 2px 8px rgba(20, 25, 50, 0.06);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; }
+  header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  header h1 { margin: 0; font-size: 18px; }
+  nav button { background: transparent; border: 1px solid var(--border); padding: 8px 14px; border-radius: 999px; margin-left: 6px; cursor: pointer; color: var(--text); }
+  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], input[type=date], input[type=search], textarea, select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; color: var(--text); }
+  textarea { min-height: 60px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  button.primary { background: var(--accent); color: #fff; border: 0; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar > * { flex: 0 0 auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; display: flex; flex-direction: column; }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #eef0f6; display: block; }
+  .card .meta { padding: 8px 10px; }
+  .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .card .desc { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .empty { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; }
+  .search-results { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; display: none; }
+  .search-results.open { display: block; }
+  .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
+  .search-results li:hover { background: var(--accent-soft); }
+  .search-results img { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; background: #eef0f6; }
+  .item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; }
+  .item img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: #eef0f6; }
+  .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
+  .item .ic-meta .ic-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item .ic-controls { display: flex; gap: 6px; align-items: center; }
+  .item .ic-controls select { width: 70px; padding: 6px; }
+  .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; flex-wrap: wrap; }
+  .history-row .meta { display: flex; flex-direction: column; }
+  .history-row .title { font-weight: 600; font-size: 14px; }
+  .history-row .sub { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 999px; font-size: 11px; margin-left: 6px; vertical-align: middle; }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(15,20,40,0.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .modal h3 { margin: 0 0 12px; font-size: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .modal img.preview { width: 100%; max-height: 220px; object-fit: contain; background: #f6f7fb; border-radius: 8px; margin-bottom: 10px; }
+
+  /* A4 page */
+  .a4-wrap { overflow: auto; padding: 12px; background: #eceff5; border-radius: 10px; }
+  .a4-page { width: 794px; min-height: 1123px; background: #fff; padding: 36px 40px; margin: 0 auto; box-shadow: 0 6px 24px rgba(0,0,0,0.08); color: #1f2330; }
+  .a4-header { border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+  .a4-header h2 { font-size: 22px; margin: 0; }
+  .a4-header .date { color: var(--muted); font-size: 14px; }
+  .a4-memo { font-size: 13px; color: #4b5563; margin-bottom: 14px; white-space: pre-wrap; }
+  .a4-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .a4-item { display: grid; grid-template-columns: 90px 1fr 110px; gap: 12px; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .a4-item img { width: 90px; height: 90px; object-fit: cover; border-radius: 6px; background: #eef0f6; }
+  .a4-item .name { font-weight: 700; font-size: 15px; }
+  .a4-item .desc { font-size: 12px; color: #4b5563; margin-top: 4px; white-space: pre-wrap; }
+  .a4-item .sr { font-size: 14px; font-weight: 700; text-align: right; }
+  .a4-item .sr small { display: block; font-weight: 400; color: var(--muted); }
+  .a4-footer { margin-top: 18px; text-align: right; font-size: 11px; color: var(--muted); }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .top-actions { display: flex; gap: 8px; }
+  .editing-banner { background: #fff7e6; border: 1px solid #f1c772; color: #8a5a00; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; align-items: center; justify-content: space-between; gap: 8px; }
+  .editing-banner.open { display: flex; }
+</style>
+</head>
+<body>
+<header>
+  <h1>운동 세션 기록기</h1>
+  <nav>
+    <button data-tab="library" class="active">동작 라이브러리</button>
+    <button data-tab="routine">루틴 만들기</button>
+    <button data-tab="history">기록 내역</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ========== 동작 라이브러리 ========== -->
+  <section class="tab active" id="tab-library">
+    <div class="panel">
+      <h2>동작 업로드</h2>
+      <form id="upload-form">
+        <div class="row">
+          <div>
+            <label>동작 이름 *</label>
+            <input type="text" id="up-name" required placeholder="예: 푸쉬업" />
+          </div>
+          <div>
+            <label>이미지 파일 *</label>
+            <input type="file" id="up-file" accept="image/*" required />
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <label>동작 설명 (선택)</label>
+          <textarea id="up-desc" placeholder="자세 포인트, 호흡 등"></textarea>
+        </div>
+        <div class="toolbar" style="margin-top:10px;">
+          <button type="submit" class="primary">업로드</button>
+          <span class="hint">이미지는 자동으로 800px로 리사이즈되어 저장됩니다.</span>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;">라이브러리 <span class="badge" id="lib-count">0</span></h2>
+        <input type="search" id="lib-search" placeholder="이름으로 검색" style="max-width: 280px;" />
+      </div>
+      <div id="lib-grid" class="grid" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- ========== 루틴 만들기 ========== -->
+  <section class="tab" id="tab-routine">
+    <div class="editing-banner" id="editing-banner">
+      <span id="editing-banner-text">기존 루틴을 편집 중입니다.</span>
+      <button class="ghost" id="cancel-edit">새 루틴으로 시작</button>
+    </div>
+
+    <div class="panel">
+      <h2>루틴 정보</h2>
+      <div class="row">
+        <div>
+          <label>날짜</label>
+          <input type="date" id="rt-date" />
+        </div>
+        <div>
+          <label>제목</label>
+          <input type="text" id="rt-title" placeholder="예: 상체의 날" />
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label>메모 (선택)</label>
+        <textarea id="rt-memo" placeholder="컨디션, 메모 등"></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>동작 추가</h2>
+      <input type="search" id="rt-search" placeholder="동작 이름 검색 후 클릭" autocomplete="off" />
+      <ul class="search-results" id="rt-results"></ul>
+      <p class="hint">라이브러리에 등록된 동작만 추가할 수 있습니다. 같은 동작도 여러 번 추가 가능합니다.</p>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;">항목 <span class="badge" id="rt-count">0</span></h2>
+        <div class="top-actions">
+          <button class="ghost" id="rt-clear">전체 비우기</button>
+          <button class="primary" id="rt-save">루틴 저장</button>
+        </div>
+      </div>
+      <div id="rt-items" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ========== 기록 내역 ========== -->
+  <section class="tab" id="tab-history">
+    <div class="panel">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;">저장된 루틴 <span class="badge" id="hist-count">0</span></h2>
+        <input type="search" id="hist-search" placeholder="제목/날짜 검색" style="max-width: 280px;" />
+      </div>
+      <div id="hist-list" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="panel" id="preview-panel" style="display:none;">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;">A4 미리보기</h2>
+        <div class="top-actions">
+          <button class="ghost" id="preview-close">닫기</button>
+          <button class="primary" id="preview-export">JPG로 저장</button>
+        </div>
+      </div>
+      <div class="a4-wrap" style="margin-top:10px;">
+        <div class="a4-page" id="a4-page"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 라이브러리 카드 편집 모달 -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <h3>동작 편집</h3>
+    <img class="preview" id="ed-preview" alt="" />
+    <label>이름</label>
+    <input type="text" id="ed-name" />
+    <div style="height:8px;"></div>
+    <label>설명</label>
+    <textarea id="ed-desc"></textarea>
+    <div class="modal-actions">
+      <button class="danger" id="ed-delete">삭제</button>
+      <button class="ghost" id="ed-cancel">취소</button>
+      <button class="primary" id="ed-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ============ Storage ============
+const KEYS = { exercises: "workout.exercises.v1", routines: "workout.routines.v1" };
+const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+let exercises = load(KEYS.exercises, []);
+let routines = load(KEYS.routines, []);
+
+// 현재 작성/편집 중인 루틴
+let currentRoutine = newRoutine();
+let editingRoutineId = null; // 기존 루틴 편집 시 해당 id
+
+function newRoutine() {
+  return { id: null, date: todayStr(), title: "", memo: "", items: [], createdAt: null };
+}
+function todayStr() {
+  const d = new Date();
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+// ============ 이미지 리사이즈 ============
+function resizeImage(file, maxSide = 800, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============ Tabs ============
+const tabs = document.querySelectorAll("nav button");
+const sections = document.querySelectorAll("section.tab");
+tabs.forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+function switchTab(name) {
+  tabs.forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  sections.forEach((s) => s.classList.toggle("active", s.id === "tab-" + name));
+}
+
+// ============ 라이브러리 ============
+const upForm = document.getElementById("upload-form");
+const upName = document.getElementById("up-name");
+const upFile = document.getElementById("up-file");
+const upDesc = document.getElementById("up-desc");
+const libGrid = document.getElementById("lib-grid");
+const libCount = document.getElementById("lib-count");
+const libSearch = document.getElementById("lib-search");
+
+upForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const file = upFile.files[0];
+  if (!file) return;
+  try {
+    const dataUrl = await resizeImage(file);
+    const ex = {
+      id: uid(),
+      name: upName.value.trim(),
+      description: upDesc.value.trim(),
+      imageDataUrl: dataUrl,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    exercises.push(ex);
+    save(KEYS.exercises, exercises);
+    upForm.reset();
+    renderLibrary();
+  } catch (err) {
+    alert("이미지를 불러오지 못했습니다: " + err);
+  }
+});
+
+libSearch.addEventListener("input", renderLibrary);
+
+function renderLibrary() {
+  const q = (libSearch.value || "").toLowerCase().trim();
+  const list = exercises
+    .filter((e) => !q || e.name.toLowerCase().includes(q))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  libCount.textContent = exercises.length;
+  if (list.length === 0) {
+    libGrid.innerHTML = `<div class="empty">${exercises.length === 0 ? "등록된 동작이 없습니다. 위에서 업로드하세요." : "검색 결과가 없습니다."}</div>`;
+    return;
+  }
+  libGrid.innerHTML = list.map((e) => `
+    <div class="card" data-id="${e.id}">
+      <img src="${e.imageDataUrl}" alt="${escapeHtml(e.name)}" />
+      <div class="meta">
+        <div class="name">${escapeHtml(e.name)}</div>
+        <div class="desc">${escapeHtml(e.description || "설명 없음")}</div>
+      </div>
+    </div>`).join("");
+  libGrid.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openEdit(c.dataset.id)));
+}
+
+// ============ 라이브러리 편집 모달 ============
+const edModal = document.getElementById("edit-modal");
+const edPreview = document.getElementById("ed-preview");
+const edName = document.getElementById("ed-name");
+const edDesc = document.getElementById("ed-desc");
+let editingExerciseId = null;
+
+document.getElementById("ed-cancel").addEventListener("click", () => edModal.classList.remove("open"));
+document.getElementById("ed-save").addEventListener("click", () => {
+  const ex = exercises.find((e) => e.id === editingExerciseId);
+  if (!ex) return;
+  ex.name = edName.value.trim() || ex.name;
+  ex.description = edDesc.value.trim();
+  ex.updatedAt = Date.now();
+  save(KEYS.exercises, exercises);
+  edModal.classList.remove("open");
+  renderLibrary();
+});
+document.getElementById("ed-delete").addEventListener("click", () => {
+  if (!confirm("이 동작을 삭제할까요? 라이브러리에서만 제거되며 이미 저장된 루틴은 그대로 유지됩니다.")) return;
+  exercises = exercises.filter((e) => e.id !== editingExerciseId);
+  save(KEYS.exercises, exercises);
+  edModal.classList.remove("open");
+  renderLibrary();
+});
+edModal.addEventListener("click", (e) => { if (e.target === edModal) edModal.classList.remove("open"); });
+
+function openEdit(id) {
+  const ex = exercises.find((e) => e.id === id);
+  if (!ex) return;
+  editingExerciseId = id;
+  edPreview.src = ex.imageDataUrl;
+  edName.value = ex.name;
+  edDesc.value = ex.description || "";
+  edModal.classList.add("open");
+}
+
+// ============ 루틴 빌더 ============
+const rtDate = document.getElementById("rt-date");
+const rtTitle = document.getElementById("rt-title");
+const rtMemo = document.getElementById("rt-memo");
+const rtSearch = document.getElementById("rt-search");
+const rtResults = document.getElementById("rt-results");
+const rtItems = document.getElementById("rt-items");
+const rtCount = document.getElementById("rt-count");
+
+[rtDate, rtTitle, rtMemo].forEach((el) => el.addEventListener("input", () => {
+  currentRoutine.date = rtDate.value;
+  currentRoutine.title = rtTitle.value;
+  currentRoutine.memo = rtMemo.value;
+}));
+
+rtSearch.addEventListener("input", renderSearchResults);
+rtSearch.addEventListener("focus", renderSearchResults);
+document.addEventListener("click", (e) => {
+  if (!rtResults.contains(e.target) && e.target !== rtSearch) rtResults.classList.remove("open");
+});
+
+function renderSearchResults() {
+  const q = (rtSearch.value || "").toLowerCase().trim();
+  const list = exercises.filter((e) => !q || e.name.toLowerCase().includes(q)).slice(0, 20);
+  if (list.length === 0) {
+    rtResults.innerHTML = `<li style="color:var(--muted); cursor:default;">${exercises.length === 0 ? "라이브러리에 동작이 없습니다." : "검색 결과 없음"}</li>`;
+  } else {
+    rtResults.innerHTML = list.map((e) => `
+      <li data-id="${e.id}">
+        <img src="${e.imageDataUrl}" alt="" />
+        <div>
+          <div style="font-weight:600;">${escapeHtml(e.name)}</div>
+          <div style="font-size:11px;color:var(--muted);">${escapeHtml(e.description || "")}</div>
+        </div>
+      </li>`).join("");
+    rtResults.querySelectorAll("li[data-id]").forEach((li) => li.addEventListener("click", () => {
+      addItem(li.dataset.id);
+      rtSearch.value = "";
+      rtResults.classList.remove("open");
+    }));
+  }
+  rtResults.classList.add("open");
+}
+
+function addItem(exerciseId) {
+  currentRoutine.items.push({ exerciseId, sets: 3, reps: 10 });
+  renderRoutineItems();
+}
+
+function renderRoutineItems() {
+  rtCount.textContent = currentRoutine.items.length;
+  if (currentRoutine.items.length === 0) {
+    rtItems.innerHTML = `<div class="empty">위에서 동작을 검색해 추가하세요.</div>`;
+    return;
+  }
+  const setsOpts = numOptions(1, 10);
+  const repsOpts = numOptions(1, 50);
+  rtItems.innerHTML = currentRoutine.items.map((it, idx) => {
+    const ex = exercises.find((e) => e.id === it.exerciseId);
+    const img = ex ? ex.imageDataUrl : "";
+    const name = ex ? escapeHtml(ex.name) : "(삭제된 동작)";
+    const desc = ex ? escapeHtml(ex.description || "") : "라이브러리에서 제거된 항목입니다.";
+    return `
+      <div class="item" data-idx="${idx}">
+        <img src="${img}" alt="" />
+        <div class="ic-meta">
+          <div class="ic-name">${name}</div>
+          <div class="ic-desc">${desc}</div>
+        </div>
+        <div class="ic-controls">
+          <label style="margin:0;">세트</label>
+          <select data-role="sets">${optionsWithSelected(setsOpts, it.sets)}</select>
+          <label style="margin:0;">회</label>
+          <select data-role="reps">${optionsWithSelected(repsOpts, it.reps)}</select>
+          <button class="danger" data-role="rm">삭제</button>
+        </div>
+      </div>`;
+  }).join("");
+  rtItems.querySelectorAll(".item").forEach((row) => {
+    const idx = Number(row.dataset.idx);
+    row.querySelector('select[data-role="sets"]').addEventListener("change", (e) => {
+      currentRoutine.items[idx].sets = Number(e.target.value);
+    });
+    row.querySelector('select[data-role="reps"]').addEventListener("change", (e) => {
+      currentRoutine.items[idx].reps = Number(e.target.value);
+    });
+    row.querySelector('button[data-role="rm"]').addEventListener("click", () => {
+      currentRoutine.items.splice(idx, 1);
+      renderRoutineItems();
+    });
+  });
+}
+
+function numOptions(from, to) {
+  const arr = [];
+  for (let i = from; i <= to; i++) arr.push(i);
+  return arr;
+}
+function optionsWithSelected(arr, sel) {
+  return arr.map((n) => `<option value="${n}" ${n === sel ? "selected" : ""}>${n}</option>`).join("");
+}
+
+document.getElementById("rt-clear").addEventListener("click", () => {
+  if (currentRoutine.items.length === 0) return;
+  if (!confirm("현재 작성 중인 항목을 모두 비울까요?")) return;
+  currentRoutine.items = [];
+  renderRoutineItems();
+});
+
+document.getElementById("rt-save").addEventListener("click", () => {
+  if (!currentRoutine.title.trim()) { alert("루틴 제목을 입력해주세요."); rtTitle.focus(); return; }
+  if (currentRoutine.items.length === 0) { alert("최소 한 개의 동작을 추가해주세요."); return; }
+  if (editingRoutineId) {
+    const idx = routines.findIndex((r) => r.id === editingRoutineId);
+    if (idx >= 0) {
+      routines[idx] = { ...routines[idx], date: currentRoutine.date, title: currentRoutine.title.trim(), memo: currentRoutine.memo, items: currentRoutine.items, updatedAt: Date.now() };
+    }
+  } else {
+    routines.push({
+      id: uid(),
+      date: currentRoutine.date,
+      title: currentRoutine.title.trim(),
+      memo: currentRoutine.memo,
+      items: currentRoutine.items,
+      createdAt: Date.now(),
+    });
+  }
+  save(KEYS.routines, routines);
+  resetRoutineBuilder();
+  renderHistory();
+  switchTab("history");
+});
+
+function resetRoutineBuilder() {
+  currentRoutine = newRoutine();
+  editingRoutineId = null;
+  rtDate.value = currentRoutine.date;
+  rtTitle.value = "";
+  rtMemo.value = "";
+  rtSearch.value = "";
+  document.getElementById("editing-banner").classList.remove("open");
+  renderRoutineItems();
+}
+
+document.getElementById("cancel-edit").addEventListener("click", () => {
+  if (!confirm("편집을 취소하고 새 루틴을 시작할까요? 저장하지 않은 변경은 사라집니다.")) return;
+  resetRoutineBuilder();
+});
+
+// ============ 기록 내역 ============
+const histList = document.getElementById("hist-list");
+const histCount = document.getElementById("hist-count");
+const histSearch = document.getElementById("hist-search");
+histSearch.addEventListener("input", renderHistory);
+
+function renderHistory() {
+  const q = (histSearch.value || "").toLowerCase().trim();
+  const list = routines
+    .filter((r) => !q || r.title.toLowerCase().includes(q) || r.date.includes(q))
+    .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+  histCount.textContent = routines.length;
+  if (list.length === 0) {
+    histList.innerHTML = `<div class="empty">${routines.length === 0 ? "저장된 루틴이 없습니다." : "검색 결과가 없습니다."}</div>`;
+    return;
+  }
+  histList.innerHTML = list.map((r) => `
+    <div class="history-row" data-id="${r.id}">
+      <div class="meta">
+        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span></div>
+        <div class="sub">${r.date}</div>
+      </div>
+      <div class="top-actions">
+        <button class="ghost" data-role="load">불러오기</button>
+        <button class="ghost" data-role="preview">미리보기 / JPG</button>
+        <button class="danger" data-role="delete">삭제</button>
+      </div>
+    </div>`).join("");
+  histList.querySelectorAll(".history-row").forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector('[data-role="load"]').addEventListener("click", () => loadRoutine(id));
+    row.querySelector('[data-role="preview"]').addEventListener("click", () => openPreview(id));
+    row.querySelector('[data-role="delete"]').addEventListener("click", () => deleteRoutine(id));
+  });
+}
+
+function loadRoutine(id) {
+  const r = routines.find((x) => x.id === id);
+  if (!r) return;
+  currentRoutine = {
+    id: r.id,
+    date: r.date,
+    title: r.title,
+    memo: r.memo || "",
+    items: r.items.map((it) => ({ ...it })),
+    createdAt: r.createdAt,
+  };
+  editingRoutineId = r.id;
+  rtDate.value = currentRoutine.date;
+  rtTitle.value = currentRoutine.title;
+  rtMemo.value = currentRoutine.memo;
+  document.getElementById("editing-banner-text").textContent = `「${r.title}」(${r.date}) 을(를) 편집 중입니다. 저장하면 기존 기록을 덮어씁니다.`;
+  document.getElementById("editing-banner").classList.add("open");
+  renderRoutineItems();
+  switchTab("routine");
+}
+
+function deleteRoutine(id) {
+  if (!confirm("이 루틴을 삭제할까요?")) return;
+  routines = routines.filter((r) => r.id !== id);
+  save(KEYS.routines, routines);
+  document.getElementById("preview-panel").style.display = "none";
+  renderHistory();
+}
+
+// ============ A4 미리보기 / JPG 출력 ============
+const previewPanel = document.getElementById("preview-panel");
+const a4Page = document.getElementById("a4-page");
+let previewRoutineId = null;
+
+document.getElementById("preview-close").addEventListener("click", () => previewPanel.style.display = "none");
+document.getElementById("preview-export").addEventListener("click", exportJpg);
+
+function openPreview(id) {
+  const r = routines.find((x) => x.id === id);
+  if (!r) return;
+  previewRoutineId = id;
+  a4Page.innerHTML = renderA4(r);
+  previewPanel.style.display = "block";
+  previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderA4(r) {
+  const itemsHtml = r.items.map((it, i) => {
+    const ex = exercises.find((e) => e.id === it.exerciseId);
+    const img = ex ? ex.imageDataUrl : "";
+    const name = ex ? escapeHtml(ex.name) : "(삭제된 동작)";
+    const desc = ex ? escapeHtml(ex.description || "") : "";
+    return `
+      <div class="a4-item">
+        <img src="${img}" alt="" crossorigin="anonymous" />
+        <div>
+          <div class="name">${i + 1}. ${name}</div>
+          ${desc ? `<div class="desc">${desc}</div>` : ""}
+        </div>
+        <div class="sr">${it.sets} × ${it.reps}<small>세트 × 회</small></div>
+      </div>`;
+  }).join("");
+  return `
+    <div class="a4-header">
+      <h2>${escapeHtml(r.title)}</h2>
+      <div class="date">${r.date}</div>
+    </div>
+    ${r.memo ? `<div class="a4-memo">${escapeHtml(r.memo)}</div>` : ""}
+    <div class="a4-list">${itemsHtml}</div>
+    <div class="a4-footer">총 ${r.items.length}개 항목 · 운동 세션 기록기</div>
+  `;
+}
+
+async function exportJpg() {
+  if (!previewRoutineId) return;
+  const r = routines.find((x) => x.id === previewRoutineId);
+  if (!r) return;
+  try {
+    const canvas = await html2canvas(a4Page, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `workout_${r.date}_${r.title.replace(/[\\/:*?"<>|\s]+/g, "_")}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (err) {
+    alert("JPG 저장에 실패했습니다: " + err);
+  }
+}
+
+// ============ Utils ============
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ============ Init ============
+function init() {
+  rtDate.value = currentRoutine.date;
+  renderLibrary();
+  renderRoutineItems();
+  renderHistory();
+}
+init();
+</script>
+</body>
+</html>
