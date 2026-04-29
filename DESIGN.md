@@ -70,8 +70,26 @@ routines: [
 - vanilla HTML/CSS/JS (빌드 도구 없음).
 - 외부 라이브러리: [`html2canvas`](https://html2canvas.hertzen.com/) CDN — JPG 변환만 담당.
 
-## 8. 한계 / 후속 과제
+## 8. 외부 시드 데이터셋 (공개 운동 1,324개)
+- **출처**: [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset) — 비상업/교육 연구 목적 전용.
+- **로딩 흐름**: 첫 로드 시 `data/exercises.json` (3.5MB)을 GitHub raw 에서 fetch → IndexedDB(`workout-cache.kv`) 에 7일 TTL 캐시.
+- **이미지/GIF**: Supabase 미러링 없음. `raw.githubusercontent.com/...` URL을 그대로 참조.
+- **검색 풀 이중화**: 루틴 빌더의 검색은 `내 라이브러리(local)` + `공개 데이터셋(seed)` 양쪽에서 결과를 합쳐 보여줌(배지 구분).
+- **필터**: 카테고리 / 장비 / 타깃 근육 dropdown은 시드의 메타에서 unique 값을 추출.
+
+### 데이터 모델 변화
+```
+// before
+routine.items: [ { exerciseId, sets, reps } ]
+// after
+routine.items: [ { source: 'local'|'seed', refId, sets, reps } ]
+```
+- `migrateRoutineItems()` 가 init 시 일회 실행되어 `exerciseId` → `{source:'local', refId}` 로 자동 변환.
+- `resolveExercise(item)` 헬퍼가 source 별로 표준 표시 객체(`{name, description, image, gif, meta}`) 를 반환 — 모든 렌더 함수가 이걸 사용.
+
+## 9. 한계 / 후속 과제
 - 다중 기기 동기화 없음(서버 미사용).
 - 이미지가 매우 많을 경우 localStorage 한계 → IndexedDB 마이그레이션 고려.
 - 루틴 항목 N개 초과 시 페이지네이션 자동화 필요.
-- 검색은 부분 문자열만 지원 → 추후 태그/카테고리 추가 여지.
+- 시드 데이터 한국어 번역 없음 → `name_ko.json` 매핑 또는 LLM 번역 후속 작업.
+- 시드 데이터셋 라이선스: 비상업 한정. 상업화 시점에 ExerciseDB Pro 등으로 대체 검토 필요.
