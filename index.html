@@ -135,6 +135,18 @@
   .editing-banner { background: #fff7e6; border: 1px solid #f1c772; color: #8a5a00; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; align-items: center; justify-content: space-between; gap: 8px; }
   .editing-banner.open { display: flex; }
 
+  .reminder-banner {
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 10px; padding: 10px 14px; margin: 0 0 16px;
+    display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .reminder-banner.open { display: flex; }
+  .reminder-banner button { padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .reminder-banner button.primary { background: var(--accent); color: #fff; border: 0; }
+  .reminder-banner button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
   /* search filters */
   .search-filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   @media (max-width: 640px) { .search-filters { grid-template-columns: 1fr; } }
@@ -177,6 +189,12 @@
 </header>
 
 <main>
+  <div class="reminder-banner" id="reminder-banner">
+    <span style="flex:1;"><strong>백업 권장</strong> · <span id="reminder-text"></span></span>
+    <button class="primary" id="reminder-now">지금 백업</button>
+    <button class="ghost"   id="reminder-snooze">1주일 미루기</button>
+    <button class="ghost"   id="reminder-off">알림 끄기</button>
+  </div>
 
   <!-- ========== 동작 라이브러리 ========== -->
   <section class="tab active" id="tab-library">
@@ -223,7 +241,12 @@
         <button class="ghost"   id="data-import-merge">백업 가져오기 (병합)</button>
         <button class="ghost"   id="data-import-replace">백업 가져오기 (덮어쓰기)</button>
         <input type="file" id="data-import-file" accept="application/json,.json" style="display:none;" />
-        <span id="data-stats" class="hint" style="margin-left:auto;"></span>
+      </div>
+      <div class="toolbar" style="margin-top:8px; gap:14px; font-size:12px; color: var(--muted); flex-wrap: wrap;">
+        <span id="data-stats"></span>
+        <span id="data-last-export"></span>
+        <span style="flex:1;"></span>
+        <button class="ghost" id="reminder-toggle" style="padding:4px 10px; font-size:11px;">백업 알림 설정</button>
       </div>
     </div>
   </section>
@@ -1373,9 +1396,92 @@ function openDictionaryDetail(id) {
   if (inlineEdit) inlineEdit.addEventListener("click", () => openEdit("seed", id));
 }
 
-// ============ 데이터 백업 / 복원 ============
+// ============ 데이터 백업 / 복원 + 알림 ============
 const BACKUP_SCHEMA = "workout.backup.v1";
+const REMINDER_KEYS = {
+  lastExport:    "workout.lastExportAt",
+  reminderConfig:"workout.reminderConfig",
+};
+const REMINDER_DEFAULT = { enabled: true, snoozeUntil: 0, thresholdDays: 7 };
 let pendingImportMode = "merge"; // "merge" | "replace"
+
+function getReminderConfig() {
+  const cfg = load(REMINDER_KEYS.reminderConfig, null);
+  return { ...REMINDER_DEFAULT, ...(cfg || {}) };
+}
+function setReminderConfig(cfg) { save(REMINDER_KEYS.reminderConfig, cfg); }
+function getLastExport() { return load(REMINDER_KEYS.lastExport, 0); }
+function markExportSuccess() { save(REMINDER_KEYS.lastExport, Date.now()); refreshReminderUI(); }
+
+function daysSince(ts) { return Math.floor((Date.now() - ts) / (24 * 3600 * 1000)); }
+function formatRelativeDays(ts) {
+  if (!ts) return "백업한 적 없음";
+  const d = daysSince(ts);
+  if (d <= 0) return "오늘 백업함";
+  if (d === 1) return "어제 백업함";
+  return `${d}일 전 백업`;
+}
+
+function shouldShowReminder() {
+  const cfg = getReminderConfig();
+  if (!cfg.enabled) return false;
+  if (Date.now() < (cfg.snoozeUntil || 0)) return false;
+  if (exercises.length === 0 && routines.length === 0 && Object.keys(seedOverrides).length === 0) return false;
+  const last = getLastExport();
+  if (!last) return true; // 한 번도 안 했으면 권장
+  return daysSince(last) >= cfg.thresholdDays;
+}
+
+function refreshReminderUI() {
+  const banner = document.getElementById("reminder-banner");
+  const textEl = document.getElementById("reminder-text");
+  if (banner && textEl) {
+    if (shouldShowReminder()) {
+      const last = getLastExport();
+      textEl.textContent = last
+        ? `마지막 백업이 ${daysSince(last)}일 전입니다. 데이터 손실 대비를 위해 백업을 권장합니다.`
+        : `아직 백업한 적이 없습니다. 데이터 손실 대비를 위해 첫 백업을 권장합니다.`;
+      banner.classList.add("open");
+    } else {
+      banner.classList.remove("open");
+    }
+  }
+  const lastEl = document.getElementById("data-last-export");
+  if (lastEl) lastEl.textContent = formatRelativeDays(getLastExport());
+}
+
+function initReminder() {
+  const banner = document.getElementById("reminder-banner");
+  document.getElementById("reminder-now").addEventListener("click", () => exportAllData());
+  document.getElementById("reminder-snooze").addEventListener("click", () => {
+    const cfg = getReminderConfig();
+    cfg.snoozeUntil = Date.now() + 7 * 24 * 3600 * 1000;
+    setReminderConfig(cfg);
+    refreshReminderUI();
+  });
+  document.getElementById("reminder-off").addEventListener("click", () => {
+    if (!confirm("백업 알림을 더 이상 표시하지 않습니다. 계속할까요?\n('백업 알림 설정' 버튼으로 다시 켤 수 있습니다)")) return;
+    const cfg = getReminderConfig();
+    cfg.enabled = false;
+    setReminderConfig(cfg);
+    refreshReminderUI();
+  });
+  document.getElementById("reminder-toggle").addEventListener("click", () => {
+    const cfg = getReminderConfig();
+    const enabled = !cfg.enabled;
+    const newDays = prompt(
+      `백업 알림 ${enabled ? "켜기" : "끄기"}\n\n며칠 미백업 시 알림? (기본 7일, 1~30 사이)`,
+      String(cfg.thresholdDays)
+    );
+    if (newDays === null) return;
+    const n = parseInt(newDays, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 30) { alert("1~30 사이 숫자를 입력해 주세요."); return; }
+    setReminderConfig({ enabled: true, snoozeUntil: 0, thresholdDays: n });
+    refreshReminderUI();
+    alert(`백업 알림 켜짐 · ${n}일 미백업 시 표시됩니다.`);
+  });
+  refreshReminderUI();
+}
 
 function updateDataStats() {
   const el = document.getElementById("data-stats");
@@ -1384,6 +1490,8 @@ function updateDataStats() {
   const n_rt  = routines.length;
   const n_ovr = Object.keys(seedOverrides).length;
   el.textContent = `내 동작 ${n_ex}개 · 루틴 ${n_rt}개 · 시드 한글 수정 ${n_ovr}개`;
+  // 알림 표시 조건 재평가 (데이터가 추가됐을 수 있음)
+  refreshReminderUI();
 }
 
 function exportAllData() {
@@ -1402,6 +1510,7 @@ function exportAllData() {
   a.download = `workout-backup-${todayStr()}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+  markExportSuccess();
 }
 
 function importDataFromFile(file, mode) {
@@ -1495,6 +1604,7 @@ function initPaletteSwitcher() {
 async function init() {
   initPaletteSwitcher();
   initBackupPanel();
+  initReminder();
   rtDate.value = currentRoutine.date;
   migrateRoutineItems();
   renderLibrary();
