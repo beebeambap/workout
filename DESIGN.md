@@ -75,7 +75,10 @@ routines: [
 - **로딩 흐름**: 첫 로드 시 `data/exercises.json` (3.5MB)을 GitHub raw 에서 fetch → IndexedDB(`workout-cache.kv`) 에 7일 TTL 캐시.
 - **이미지/GIF**: Supabase 미러링 없음. `raw.githubusercontent.com/...` URL을 그대로 참조.
 - **검색 풀 이중화**: 루틴 빌더의 검색은 `내 라이브러리(local)` + `공개 데이터셋(seed)` 양쪽에서 결과를 합쳐 보여줌(배지 구분).
-- **필터**: 카테고리 / 장비 / 타깃 근육 dropdown은 시드의 메타에서 unique 값을 추출.
+- **필터**: 카테고리(7+1 한국어 분류) / 장비 / 타깃 근육 dropdown.
+- **카테고리 매핑**: 시드의 10종(upper arms, lower arms, upper legs, lower legs, waist, chest, back, shoulders, cardio, neck) 을 `가슴 / 등 / 어깨 / 팔 / 복부 / 다리 / 유산소 / 기타` 8그룹으로 묶어 노출.
+- **세트/회 입력**: dropdown(`<select>`) → `<input type="number" min="1">` 로 변경. 모바일에서 숫자 키패드 자동 노출.
+- **이미지 컬럼**: 시트의 이미지 컬럼 폭을 130→200px, 박스 높이 110→140px 로 확장하여 가로형 사진도 자르지 않고 더 크게 표시.
 
 ### 데이터 모델 변화
 ```
