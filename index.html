@@ -83,10 +83,15 @@
   /* modal */
   .modal-bg { position: fixed; inset: 0; background: rgba(15,20,40,0.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
   .modal-bg.open { display: flex; }
-  .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); position: relative; }
+  .modal.modal-lg { max-width: 760px; max-height: 88vh; overflow-y: auto; padding: 22px 24px; }
   .modal h3 { margin: 0 0 12px; font-size: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
   .modal img.preview { width: 100%; max-height: 220px; object-fit: contain; background: var(--ph); border-radius: 8px; margin-bottom: 10px; }
+  .modal-close-x { position: absolute; top: 10px; right: 12px; background: transparent; border: 0; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+  .modal-close-x:hover { background: var(--ph); color: var(--text); }
+  /* edit-modal 은 detail-modal 위에 떠야 함 */
+  #edit-modal { z-index: 60; }
 
   /* Sheet (mobile-friendly export) */
   .sheet-wrap { overflow: auto; padding: 12px; background: var(--ph); border-radius: 10px; }
@@ -131,8 +136,9 @@
   .dict-detail .chip { background: var(--accent-soft); color: var(--accent); font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
   .dict-detail .summary { background: var(--ph); padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
   .dict-detail .steps-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
-  .dict-detail ol.steps { padding-left: 20px; margin: 0; }
+  .dict-detail ol.steps { padding-left: 20px; margin: 0 0 8px; }
   .dict-detail ol.steps li { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
+  .dict-detail ol.steps.en li { color: var(--muted); font-size: 12px; font-style: italic; }
   .dict-detail .meta-line { font-size: 11px; color: var(--muted); margin-top: 14px; }
   .src-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle; font-weight: 600; }
   .src-badge.seed  { background: #e6f4ea; color: #2e7d32; }
@@ -282,18 +288,22 @@
       <div id="dict-more" style="text-align:center; margin-top: 10px;"></div>
     </div>
 
-    <div class="panel" id="dict-detail-panel" style="display:none;">
-      <div class="toolbar" style="justify-content: space-between;">
-        <h2 style="margin:0;" id="dict-detail-title">상세</h2>
-        <div class="top-actions">
-          <button class="ghost" id="dict-detail-edit">한글 편집</button>
-          <button class="ghost" id="dict-detail-close">닫기</button>
-        </div>
-      </div>
-      <div id="dict-detail-body" style="margin-top: 12px;"></div>
-    </div>
   </section>
 </main>
+
+<!-- 운동 사전 상세 모달 -->
+<div class="modal-bg" id="dict-detail-modal">
+  <div class="modal modal-lg">
+    <button class="modal-close-x" id="dict-detail-close" aria-label="닫기">×</button>
+    <div class="toolbar" style="justify-content: space-between; padding-right: 28px;">
+      <h2 style="margin:0;" id="dict-detail-title">상세</h2>
+      <div class="top-actions">
+        <button class="ghost" id="dict-detail-edit">한글 편집</button>
+      </div>
+    </div>
+    <div id="dict-detail-body" style="margin-top: 12px;"></div>
+  </div>
+</div>
 
 <!-- 동작 편집 모달 (로컬·시드 공용) -->
 <div class="modal-bg" id="edit-modal">
@@ -759,7 +769,8 @@ function refreshAfterEdit() {
   // 운동 사전 탭도 함께 리프레시 (init 이후에만 의미 있음)
   if (typeof renderDictionary === "function" && seedExercises.length) {
     renderDictionary();
-    if (dictCurrentDetailId && dictDetailPanel.style.display !== "none") {
+    if (dictCurrentDetailId && dictDetailModal.classList.contains("open")) {
+      // 한글 편집 후 상세 모달도 새 데이터로 다시 그림
       openDictionaryDetail(dictCurrentDetailId);
     }
   }
@@ -1194,7 +1205,7 @@ const dictSearch  = document.getElementById("dict-search");
 const dictFilterCat    = document.getElementById("dict-filter-cat");
 const dictFilterEq     = document.getElementById("dict-filter-eq");
 const dictFilterTarget = document.getElementById("dict-filter-target");
-const dictDetailPanel = document.getElementById("dict-detail-panel");
+const dictDetailModal = document.getElementById("dict-detail-modal");
 const dictDetailBody  = document.getElementById("dict-detail-body");
 const dictDetailTitle = document.getElementById("dict-detail-title");
 let dictDisplayLimit = 60;
@@ -1202,13 +1213,19 @@ let dictCurrentDetailId = null;
 
 [dictSearch, dictFilterCat, dictFilterEq, dictFilterTarget].forEach((el) =>
   el.addEventListener("input", () => { dictDisplayLimit = 60; renderDictionary(); }));
-document.getElementById("dict-detail-close").addEventListener("click", () => {
-  dictDetailPanel.style.display = "none";
-  dictCurrentDetailId = null;
+document.getElementById("dict-detail-close").addEventListener("click", closeDictionaryDetail);
+dictDetailModal.addEventListener("click", (e) => { if (e.target === dictDetailModal) closeDictionaryDetail(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && dictDetailModal.classList.contains("open")) closeDictionaryDetail();
 });
 document.getElementById("dict-detail-edit").addEventListener("click", () => {
   if (dictCurrentDetailId) openEdit("seed", dictCurrentDetailId);
 });
+
+function closeDictionaryDetail() {
+  dictDetailModal.classList.remove("open");
+  dictCurrentDetailId = null;
+}
 
 function filteredSeed() {
   const q   = (dictSearch.value || "").toLowerCase().trim();
@@ -1282,13 +1299,25 @@ function openDictionaryDetail(id) {
   const showEn = (ko.name_ko && ko.name_ko !== s.name) ? s.name : "";
   const summary = ko.summary_ko || "";
   const stepsEn = (s.instruction_steps && s.instruction_steps.en) || [];
+  const stepsKo = Array.isArray(ko.steps_ko) ? ko.steps_ko : [];
   const fallbackParaEn = (s.instructions && s.instructions.en) || "";
 
   dictDetailTitle.textContent = name;
 
-  const stepsHtml = stepsEn.length
-    ? `<ol class="steps">${stepsEn.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`
-    : (fallbackParaEn ? `<p style="font-size:13px;line-height:1.5;">${escapeHtml(fallbackParaEn)}</p>` : `<p class="empty">수행 방법 정보가 없습니다.</p>`);
+  // 수행 방법: 한글 → 영문 순으로 노출. 한글이 없으면 영문만.
+  let stepsHtml = "";
+  if (stepsKo.length) {
+    stepsHtml += `<div class="steps-title">수행 방법 (한글)</div>`;
+    stepsHtml += `<ol class="steps">${stepsKo.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`;
+  }
+  if (stepsEn.length) {
+    stepsHtml += `<div class="steps-title">수행 방법 (영문 원문)</div>`;
+    stepsHtml += `<ol class="steps en">${stepsEn.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`;
+  } else if (!stepsKo.length && fallbackParaEn) {
+    stepsHtml += `<p style="font-size:13px;line-height:1.5;">${escapeHtml(fallbackParaEn)}</p>`;
+  } else if (!stepsKo.length && !stepsEn.length) {
+    stepsHtml += `<p class="empty">수행 방법 정보가 없습니다.</p>`;
+  }
 
   dictDetailBody.innerHTML = `
     <div class="dict-detail dict-detail-grid">
@@ -1307,12 +1336,13 @@ function openDictionaryDetail(id) {
           <span class="chip">${escapeHtml(mapEquipment(s.equipment))}</span>
         </div>
         ${summary ? `<div class="summary">${escapeHtml(summary)}</div>` : ""}
-        <div class="steps-title">수행 방법 (영문 원문)</div>
         ${stepsHtml}
       </div>
     </div>`;
-  dictDetailPanel.style.display = "block";
-  dictDetailPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  dictDetailModal.classList.add("open");
+  // 모달 내부 스크롤을 맨 위로
+  const modalContent = dictDetailModal.querySelector(".modal");
+  if (modalContent) modalContent.scrollTop = 0;
 }
 
 // ============ Init ============
