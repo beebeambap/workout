@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>운동 세션 기록기 — 베이지 팔레트 비교</title>
+<style>
+  /* --- 기본 톤(현재 앱 컬러 = Default) ----------------------------- */
+  :root {
+    --bg: #f5efe2;
+    --panel: #fbf7ee;
+    --text: #3a2f24;
+    --muted: #8a7e6c;
+    --accent: #a47148;
+    --accent-soft: #efe2cf;
+    --border: #e6dcc8;
+    --danger: #b9402c;
+    --shadow: 0 2px 8px rgba(60, 40, 20, 0.08);
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+    transition: background 0.25s ease, color 0.25s ease;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .lead { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+
+  /* --- 팔레트 비교 카드 ------------------------------------------- */
+  .palettes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .palette {
+    background: var(--panel); border: 2px solid var(--border); border-radius: 14px;
+    padding: 14px; cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: var(--shadow);
+  }
+  .palette:hover { transform: translateY(-2px); }
+  .palette.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+  .palette h3 { margin: 0 0 4px; font-size: 14px; }
+  .palette .sub { color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+  .swatches { display: flex; gap: 4px; height: 36px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .swatches > div { flex: 1; }
+  .palette .codes { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+  .apply-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  .apply-bar .label { font-size: 13px; color: var(--muted); }
+  .apply-bar .name { font-weight: 700; font-size: 14px; }
+  .apply-bar button { background: var(--accent); color: #fff; border: 0; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .apply-bar .copy-out { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
+  /* --- 미리보기 영역 (실제 앱 단면을 흉내낸 컴포넌트들) ----------- */
+  .preview { display: grid; gap: 14px; }
+  .pv-header {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  .pv-header h2 { margin: 0; font-size: 16px; }
+  .pv-nav button {
+    background: transparent; border: 1px solid var(--border); padding: 6px 12px;
+    border-radius: 999px; margin-left: 4px; cursor: pointer; color: var(--text); font-size: 12px;
+  }
+  .pv-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .pv-grid { display: grid; grid-template-columns: 320px 1fr; gap: 14px; }
+  @media (max-width: 800px) { .pv-grid { grid-template-columns: 1fr; } }
+
+  .pv-panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+  }
+  .pv-panel h3 { margin: 0 0 10px; font-size: 14px; }
+
+  .pv-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pv-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .pv-card .img { width: 100%; aspect-ratio: 1/1; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 700; font-size: 22px; }
+  .pv-card .meta { padding: 6px 8px; }
+  .pv-card .name { font-size: 12px; font-weight: 600; }
+  .pv-card .desc { font-size: 10px; color: var(--muted); }
+
+  .pv-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #fff; color: var(--text); }
+  .pv-filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .pv-filters select { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); font-size: 12px; }
+  .pv-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
+  .pv-badge.seed  { background: #e6f4ea; color: #2e7d32; }
+  .pv-badge.local { background: var(--accent-soft); color: var(--accent); }
+
+  .pv-table { width: 100%; border-collapse: collapse; }
+  .pv-table th, .pv-table td { border: 1px solid var(--border); padding: 8px; vertical-align: middle; font-size: 12px; }
+  .pv-table thead th { background: var(--accent-soft); color: var(--accent); font-weight: 700; text-align: center; }
+  .pv-table .num { text-align: center; font-weight: 800; color: var(--accent); }
+  .pv-table .img { width: 60px; height: 50px; background: var(--accent-soft); border-radius: 4px; display: inline-block; }
+  .pv-table .sr { text-align: center; font-weight: 700; }
+
+  .pv-history { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; gap: 8px; }
+  .pv-history .pv-actions button { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 4px; }
+  .pv-history .pv-actions .danger { color: var(--danger); border-color: var(--danger); }
+  .pv-pill { background: var(--accent-soft); color: var(--accent); font-size: 10px; padding: 1px 8px; border-radius: 999px; margin-left: 4px; }
+
+  .pv-row-empty { color: var(--muted); font-size: 12px; padding: 14px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>베이지 팔레트 비교</h1>
+  <p class="lead">클릭하면 아래 미리보기가 즉시 그 톤으로 바뀝니다. 마음에 드는 팔레트를 정하면 <code>index.html</code> 의 <code>:root</code> 변수에 그대로 적용합니다.</p>
+
+  <div class="palettes" id="palettes"></div>
+
+  <div class="apply-bar">
+    <span class="label">선택된 팔레트</span>
+    <span class="name" id="selected-name">—</span>
+    <span style="flex:1;"></span>
+    <button class="copy-out" id="copy-css">CSS 변수 복사</button>
+    <button id="apply">이 톤을 index.html 에 적용 요청</button>
+  </div>
+
+  <div class="preview">
+    <!-- 헤더 -->
+    <div class="pv-header">
+      <h2>운동 세션 기록기</h2>
+      <div class="pv-nav">
+        <button class="active">동작 라이브러리</button>
+        <button>루틴 만들기</button>
+        <button>기록 내역</button>
+      </div>
+    </div>
+
+    <div class="pv-grid">
+      <!-- 라이브러리 카드 패널 -->
+      <div class="pv-panel">
+        <h3>동작 라이브러리 <span class="pv-pill">3</span></h3>
+        <div class="pv-cards">
+          <div class="pv-card">
+            <div class="img">🏋️</div>
+            <div class="meta"><div class="name">푸쉬업</div><div class="desc">어깨 너비, 코어 잠금</div></div>
+          </div>
+          <div class="pv-card">
+            <div class="img">🦵</div>
+            <div class="meta"><div class="name">스쿼트</div><div class="desc">발 11자, 무릎 발끝 방향</div></div>
+          </div>
+          <div class="pv-card">
+            <div class="img">💪</div>
+            <div class="meta"><div class="name">덤벨컬</div><div class="desc">팔꿈치 고정</div></div>
+          </div>
+          <div class="pv-card">
+            <div class="img">🧘</div>
+            <div class="meta"><div class="name">플랭크</div><div class="desc">엉덩이 수평</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 루틴 빌더 검색 + 시트 미리보기 -->
+      <div class="pv-panel">
+        <h3>루틴 만들기 — 동작 추가</h3>
+        <input class="pv-input" placeholder="동작 이름 검색 (영문)" />
+        <div class="pv-filters">
+          <select><option>전체 카테고리</option><option>가슴</option><option>등</option><option>다리</option></select>
+          <select><option>전체 장비</option><option>body weight</option><option>dumbbell</option></select>
+          <select><option>전체 타깃</option><option>abs</option><option>quads</option></select>
+        </div>
+
+        <h3 style="margin-top:14px;">시트 미리보기</h3>
+        <table class="pv-table">
+          <thead>
+            <tr><th style="width:30px;">#</th><th>이미지</th><th>동작</th><th style="width:60px;">세트×회</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">01</td>
+              <td><span class="img"></span></td>
+              <td><strong>푸쉬업</strong> <span class="pv-badge local">내 것</span><div style="font-size:11px;color:var(--muted);">어깨 너비</div></td>
+              <td class="sr">3 × 12</td>
+            </tr>
+            <tr>
+              <td class="num">02</td>
+              <td><span class="img"></span></td>
+              <td><strong>squat</strong> <span class="pv-badge seed">공개</span><div style="font-size:11px;color:var(--muted);">quads · body weight</div></td>
+              <td class="sr">4 × 10</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="pv-history">
+          <div>
+            <div style="font-weight:600;font-size:13px;">상체의 날 <span class="pv-pill">5개</span></div>
+            <div style="font-size:11px;color:var(--muted);">2026-04-30</div>
+          </div>
+          <div class="pv-actions">
+            <button>불러오기</button>
+            <button>JPG</button>
+            <button class="danger">삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const PALETTES = [
+  {
+    id: "warm-sand",
+    name: "따뜻한 모래 (Warm Sand)",
+    sub: "톡톡한 카라멜 액센트, 부드러운 리넨 배경",
+    vars: {
+      "--bg":          "#f5efe2",
+      "--panel":       "#fbf7ee",
+      "--text":        "#3a2f24",
+      "--muted":       "#8a7e6c",
+      "--accent":      "#a47148",
+      "--accent-soft": "#efe2cf",
+      "--border":      "#e6dcc8",
+      "--danger":      "#b9402c",
+      "--shadow":      "0 2px 8px rgba(60, 40, 20, 0.08)",
+    },
+  },
+  {
+    id: "minimal-latte",
+    name: "미니멀 라떼 (Minimal Latte)",
+    sub: "흰 패널 + 그레이지 배경, 차분하고 모던",
+    vars: {
+      "--bg":          "#efeae0",
+      "--panel":       "#ffffff",
+      "--text":        "#2c2620",
+      "--muted":       "#9c9285",
+      "--accent":      "#6b5544",
+      "--accent-soft": "#e8dfd2",
+      "--border":      "#ddd4c4",
+      "--danger":      "#c04a3e",
+      "--shadow":      "0 2px 8px rgba(40, 30, 20, 0.06)",
+    },
+  },
+  {
+    id: "pale-nude",
+    name: "페일 누드 (Pale Nude)",
+    sub: "밝고 화사한 누드 톤, 로즈탄 액센트",
+    vars: {
+      "--bg":          "#faf6ee",
+      "--panel":       "#ffffff",
+      "--text":        "#4a3f33",
+      "--muted":       "#a89d8c",
+      "--accent":      "#c69372",
+      "--accent-soft": "#f5e6d4",
+      "--border":      "#ece2cf",
+      "--danger":      "#b85a4c",
+      "--shadow":      "0 2px 10px rgba(80, 60, 40, 0.06)",
+    },
+  },
+  {
+    id: "mocha",
+    name: "모카 톤 (Mocha)",
+    sub: "진한 카페 분위기, 고대비",
+    vars: {
+      "--bg":          "#ece4d3",
+      "--panel":       "#f7f1e4",
+      "--text":        "#2a221a",
+      "--muted":       "#847866",
+      "--accent":      "#8b5e3c",
+      "--accent-soft": "#ddc9ad",
+      "--border":      "#d6c9ae",
+      "--danger":      "#a93b29",
+      "--shadow":      "0 3px 10px rgba(50, 35, 20, 0.10)",
+    },
+  },
+];
+
+const palettesEl = document.getElementById("palettes");
+const selectedNameEl = document.getElementById("selected-name");
+
+function applyPalette(p) {
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(p.vars)) root.style.setProperty(k, v);
+  selectedNameEl.textContent = p.name;
+  document.querySelectorAll(".palette").forEach((el) => el.classList.toggle("active", el.dataset.id === p.id));
+  localStorage.setItem("workout.palette.choice", p.id);
+}
+
+function buildSwatches(p) {
+  const keys = ["--bg", "--panel", "--accent-soft", "--accent", "--text", "--danger"];
+  return keys.map((k) => `<div style="background:${p.vars[k]}"></div>`).join("");
+}
+
+function buildCodes(p) {
+  return ["--bg", "--panel", "--accent", "--accent-soft", "--text", "--muted", "--border", "--danger"]
+    .map((k) => `${k}: ${p.vars[k]};`).join("<br>");
+}
+
+palettesEl.innerHTML = PALETTES.map((p) => `
+  <div class="palette" data-id="${p.id}">
+    <h3>${p.name}</h3>
+    <div class="sub">${p.sub}</div>
+    <div class="swatches">${buildSwatches(p)}</div>
+    <div class="codes">${buildCodes(p)}</div>
+  </div>`).join("");
+
+palettesEl.querySelectorAll(".palette").forEach((el) => {
+  el.addEventListener("click", () => {
+    const p = PALETTES.find((x) => x.id === el.dataset.id);
+    if (p) applyPalette(p);
+  });
+});
+
+document.getElementById("copy-css").addEventListener("click", () => {
+  const active = PALETTES.find((p) => document.querySelector(`.palette.active[data-id="${p.id}"]`));
+  if (!active) { alert("팔레트를 먼저 클릭하세요."); return; }
+  const css = `:root {\n${["--bg","--panel","--text","--muted","--accent","--accent-soft","--border","--danger","--shadow"].map((k) => `  ${k}: ${active.vars[k]};`).join("\n")}\n}`;
+  navigator.clipboard.writeText(css).then(() => alert("CSS 변수 블록을 클립보드에 복사했습니다."));
+});
+
+document.getElementById("apply").addEventListener("click", () => {
+  const active = PALETTES.find((p) => document.querySelector(`.palette.active[data-id="${p.id}"]`));
+  if (!active) { alert("팔레트를 먼저 클릭하세요."); return; }
+  alert(`선택: ${active.name}\nClaude에게 "${active.id} 팔레트로 index.html 적용해줘" 라고 말씀해 주시면 그 톤으로 메인 앱을 갱신합니다.`);
+});
+
+// 초기 선택: 마지막 선택한 톤 또는 첫 번째
+const last = localStorage.getItem("workout.palette.choice");
+const initial = PALETTES.find((p) => p.id === last) || PALETTES[0];
+applyPalette(initial);
+</script>
+</body>
+</html>
