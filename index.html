@@ -7,16 +7,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root {
-    --bg: #f6f7fb;
+    /* palette: minimal-latte */
+    --bg: #efeae0;
     --panel: #ffffff;
-    --text: #1f2330;
-    --muted: #6b7280;
-    --accent: #3a6df0;
-    --accent-soft: #e6edff;
-    --border: #e5e7eb;
-    --danger: #d64545;
-    --ok: #2e8b57;
-    --shadow: 0 2px 8px rgba(20, 25, 50, 0.06);
+    --text: #2c2620;
+    --muted: #9c9285;
+    --accent: #6b5544;
+    --accent-soft: #e8dfd2;
+    --border: #ddd4c4;
+    --danger: #c04a3e;
+    --ok: #5a8c5a;
+    --ph: #f0ebe0;
+    --shadow: 0 2px 8px rgba(40, 30, 20, 0.06);
     --radius: 10px;
   }
   * { box-sizing: border-box; }
@@ -43,7 +45,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
   .card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; display: flex; flex-direction: column; }
   .card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .card .thumb { width: 100%; aspect-ratio: 1 / 1; background: #eef0f6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .card .thumb { width: 100%; aspect-ratio: 1 / 1; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .card .thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
   .card .meta { padding: 8px 10px; }
   .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
@@ -53,9 +55,9 @@
   .search-results.open { display: block; }
   .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
   .search-results li:hover { background: var(--accent-soft); }
-  .search-results img { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; background: #eef0f6; }
+  .search-results img { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; background: var(--ph); }
   .item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; }
-  .item img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: #eef0f6; }
+  .item img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--ph); }
   .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
   .item .ic-meta .ic-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .item .ic-controls { display: flex; gap: 6px; align-items: center; }
@@ -74,11 +76,11 @@
   .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
   .modal h3 { margin: 0 0 12px; font-size: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-  .modal img.preview { width: 100%; max-height: 220px; object-fit: contain; background: #f6f7fb; border-radius: 8px; margin-bottom: 10px; }
+  .modal img.preview { width: 100%; max-height: 220px; object-fit: contain; background: var(--ph); border-radius: 8px; margin-bottom: 10px; }
 
   /* Sheet (mobile-friendly export) */
-  .sheet-wrap { overflow: auto; padding: 12px; background: #eceff5; border-radius: 10px; }
-  .sheet-page { width: 720px; background: #fff; padding: 28px 24px; margin: 0 auto; box-shadow: 0 6px 24px rgba(0,0,0,0.08); color: #1f2330; }
+  .sheet-wrap { overflow: auto; padding: 12px; background: var(--ph); border-radius: 10px; }
+  .sheet-page { width: 720px; background: #fff; padding: 28px 24px; margin: 0 auto; box-shadow: 0 6px 24px rgba(0,0,0,0.08); color: var(--text); }
   .sheet-header { border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .sheet-header h2 { font-size: 22px; margin: 0; }
   .sheet-header .date { color: var(--muted); font-size: 14px; }
@@ -285,6 +287,65 @@ const CATEGORY_MAP = {
 const CATEGORY_ORDER = ["가슴", "등", "어깨", "팔", "복부", "다리", "유산소", "기타"];
 function mapCategory(c) { return CATEGORY_MAP[c] || "기타"; }
 
+// 시드 장비(28종) → 5그룹
+const EQUIPMENT_MAP = {
+  "body weight":      "맨몸",
+  "assisted":         "맨몸",
+  "barbell":          "바벨",
+  "ez barbell":       "바벨",
+  "smith machine":    "바벨",
+  "olympic barbell":  "바벨",
+  "trap bar":         "바벨",
+  "dumbbell":         "덤벨",
+  "kettlebell":       "덤벨",
+  "weighted":         "덤벨",
+  "cable":            "머신·케이블",
+  "leverage machine": "머신·케이블",
+  "sled machine":     "머신·케이블",
+  "hammer":           "머신·케이블",
+  "upper body ergometer": "머신·케이블",
+  "skierg machine":   "머신·케이블",
+  "elliptical machine":"머신·케이블",
+  "stationary bike":  "머신·케이블",
+  "stepmill machine": "머신·케이블",
+  "band":             "소도구",
+  "resistance band":  "소도구",
+  "stability ball":   "소도구",
+  "bosu ball":        "소도구",
+  "medicine ball":    "소도구",
+  "rope":             "소도구",
+  "roller":           "소도구",
+  "wheel roller":     "소도구",
+  "tire":             "소도구",
+};
+const EQUIPMENT_ORDER = ["맨몸", "바벨", "덤벨", "머신·케이블", "소도구", "기타"];
+function mapEquipment(e) { return EQUIPMENT_MAP[e] || "기타"; }
+
+// 시드 타깃 근육(19종) → 7그룹
+const TARGET_MAP = {
+  "pectorals":         "가슴",
+  "serratus anterior": "가슴",
+  "lats":              "등",
+  "upper back":        "등",
+  "traps":             "등",
+  "spine":             "등",
+  "levator scapulae":  "등",
+  "delts":             "어깨",
+  "biceps":            "팔",
+  "triceps":           "팔",
+  "forearms":          "팔",
+  "abs":               "복부",
+  "glutes":            "다리",
+  "quads":             "다리",
+  "hamstrings":        "다리",
+  "calves":            "다리",
+  "adductors":         "다리",
+  "abductors":         "다리",
+  "cardiovascular system": "유산소",
+};
+const TARGET_ORDER = ["가슴", "등", "어깨", "팔", "복부", "다리", "유산소", "기타"];
+function mapTarget(t) { return TARGET_MAP[t] || "기타"; }
+
 let seedExercises = [];          // [{id,name,category,equipment,target,image,gif_url,...}]
 let seedById      = new Map();   // id -> seed entry
 
@@ -334,6 +395,16 @@ async function loadSeed() {
   return data;
 }
 
+// data/name_ko.json 이 있으면 시드에 한글 이름·요약을 병합
+// 형태: { "0001": { "name_ko": "...", "summary_ko": "..." }, ... }
+async function loadKoOverlay() {
+  try {
+    const res = await fetch("data/name_ko.json", { cache: "no-cache" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 // 통합 조회: 루틴 항목 → 표시용 표준 객체
 function resolveExercise(item) {
   const refId = item.refId ?? item.exerciseId; // 마이그레이션 호환
@@ -342,11 +413,13 @@ function resolveExercise(item) {
     const s = seedById.get(refId);
     if (!s) return null;
     const steps = (s.instruction_steps && s.instruction_steps.en) || [];
-    const desc  = steps.length ? steps.join(" ") : (s.instructions && s.instructions.en) || "";
+    const enDesc = steps.length ? steps.join(" ") : (s.instructions && s.instructions.en) || "";
+    // 한글 오버레이 우선
+    const ko = s._ko || {};
     return {
       source: "seed",
-      name: s.name,
-      description: desc,
+      name: ko.name_ko || s.name,
+      description: ko.summary_ko || enDesc,
       image: SEED_BASE_URL + s.image,
       gif:   SEED_BASE_URL + s.gif_url,
       meta:  [s.target, s.equipment, s.category].filter(Boolean).join(" · "),
@@ -548,17 +621,17 @@ document.addEventListener("click", (e) => {
 });
 
 function populateFilters() {
-  const setFor = (key) => Array.from(new Set(seedExercises.map((s) => s[key]).filter(Boolean))).sort();
   const fill = (sel, vals, label) => {
     sel.innerHTML = `<option value="">${label}</option>` +
       vals.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
   };
-  // 카테고리는 시드 원본을 7+1 한국어 분류로 매핑한 결과로 채움
-  const usedKoCats = Array.from(new Set(seedExercises.map((s) => mapCategory(s.category))));
-  const orderedKoCats = CATEGORY_ORDER.filter((c) => usedKoCats.includes(c));
-  fill(rtFilterCat,    orderedKoCats,        "전체 카테고리");
-  fill(rtFilterEq,     setFor("equipment"),  "전체 장비");
-  fill(rtFilterTarget, setFor("target"),     "전체 타깃 근육");
+  const orderedFor = (mapper, order) => {
+    const used = new Set(seedExercises.map((s) => mapper(s)));
+    return order.filter((c) => used.has(c));
+  };
+  fill(rtFilterCat,    orderedFor((s) => mapCategory(s.category),  CATEGORY_ORDER),  "전체 카테고리");
+  fill(rtFilterEq,     orderedFor((s) => mapEquipment(s.equipment), EQUIPMENT_ORDER), "전체 장비");
+  fill(rtFilterTarget, orderedFor((s) => mapTarget(s.target),       TARGET_ORDER),    "전체 타깃 근육");
 }
 
 function renderSearchResults() {
@@ -580,21 +653,25 @@ function renderSearchResults() {
           desc: e.description || "",
         }));
 
-  // seed: 텍스트 + 3개 필터 (카테고리는 한국어 매핑 기준)
+  // seed: 텍스트 + 3개 필터 (카테고리/장비/타깃 모두 한국어 그룹 매핑 기준)
   const seedList = seedExercises
     .filter((s) => {
       if (q && !s.name.toLowerCase().includes(q)) return false;
-      if (fCat    && mapCategory(s.category) !== fCat) return false;
-      if (fEq     && s.equipment !== fEq)             return false;
-      if (fTarget && s.target    !== fTarget)         return false;
+      if (fCat    && mapCategory(s.category)    !== fCat)    return false;
+      if (fEq     && mapEquipment(s.equipment)  !== fEq)     return false;
+      if (fTarget && mapTarget(s.target)        !== fTarget) return false;
       return true;
     })
     .slice(0, 50)
-    .map((s) => ({
-      source: "seed", refId: s.id,
-      name: s.name, image: SEED_BASE_URL + s.image,
-      desc: [s.target, s.equipment].filter(Boolean).join(" · "),
-    }));
+    .map((s) => {
+      const ko = s._ko || {};
+      return {
+        source: "seed", refId: s.id,
+        name: ko.name_ko || s.name,
+        image: SEED_BASE_URL + s.image,
+        desc: [mapTarget(s.target), mapEquipment(s.equipment)].filter(Boolean).join(" · "),
+      };
+    });
 
   const merged = [...localList, ...seedList];
 
@@ -646,10 +723,10 @@ function renderRoutineItems() {
           <div class="ic-desc" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${desc}</div>
         </div>
         <div class="ic-controls">
-          <label style="margin:0;">세트</label>
-          <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
           <label style="margin:0;">회</label>
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
+          <label style="margin:0;">세트</label>
+          <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
           <button class="danger" data-role="rm">삭제</button>
         </div>
       </div>`;
@@ -818,7 +895,7 @@ function renderSheet(r) {
           <div class="name">${name}</div>
           ${desc ? `<div class="desc">${desc}</div>` : ""}
         </td>
-        <td class="col-sr">${it.sets} × ${it.reps}<small>세트 × 회</small></td>
+        <td class="col-sr">${it.reps} × ${it.sets}<small>회 × 세트</small></td>
       </tr>`;
   }).join("");
   return `
@@ -839,7 +916,7 @@ function renderSheet(r) {
           <th class="col-num">#</th>
           <th class="col-img">이미지</th>
           <th class="col-info">동작</th>
-          <th class="col-sr">세트 × 회</th>
+          <th class="col-sr">회 × 세트</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -879,10 +956,20 @@ async function init() {
 
   const status = document.getElementById("seed-status");
   try {
-    seedExercises = await loadSeed();
+    const [seed, koOverlay] = await Promise.all([loadSeed(), loadKoOverlay()]);
+    seedExercises = seed;
+    if (koOverlay && typeof koOverlay === "object") {
+      let n = 0;
+      for (const s of seedExercises) {
+        if (koOverlay[s.id]) { s._ko = koOverlay[s.id]; n++; }
+      }
+      console.log(`한글 오버레이: ${n}/${seedExercises.length} 적용됨`);
+    }
     seedById = new Map(seedExercises.map((s) => [s.id, s]));
     populateFilters();
-    status.textContent = `공개 데이터셋 ${seedExercises.length.toLocaleString()}개 사용 가능`;
+    const koCount = koOverlay ? Object.keys(koOverlay).length : 0;
+    status.textContent = `공개 데이터셋 ${seedExercises.length.toLocaleString()}개 사용 가능` +
+      (koCount ? ` · 한글 ${koCount.toLocaleString()}개` : "");
     // 시드 의존 화면 재렌더
     renderRoutineItems();
     if (previewRoutineId) {
