@@ -118,6 +118,22 @@
   /* search filters */
   .search-filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   @media (max-width: 640px) { .search-filters { grid-template-columns: 1fr; } }
+
+  /* dictionary detail */
+  .dict-card .name-en { font-size: 11px; color: var(--muted); font-style: italic; }
+  .dict-detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
+  @media (max-width: 720px) { .dict-detail-grid { grid-template-columns: 1fr; } }
+  .dict-detail-img { width: 100%; aspect-ratio: 1/1; background: var(--ph); border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .dict-detail-img img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+  .dict-detail h3 { margin: 0 0 4px; font-size: 18px; }
+  .dict-detail .name-en { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 8px; }
+  .dict-detail .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .dict-detail .chip { background: var(--accent-soft); color: var(--accent); font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+  .dict-detail .summary { background: var(--ph); padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .dict-detail .steps-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+  .dict-detail ol.steps { padding-left: 20px; margin: 0; }
+  .dict-detail ol.steps li { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
+  .dict-detail .meta-line { font-size: 11px; color: var(--muted); margin-top: 14px; }
   .src-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle; font-weight: 600; }
   .src-badge.seed  { background: #e6f4ea; color: #2e7d32; }
   .src-badge.local { background: var(--accent-soft); color: var(--accent); }
@@ -131,9 +147,10 @@
   <div class="header-right">
     <select id="palette-select" aria-label="테마"></select>
     <nav>
-      <button data-tab="library" class="active">동작 라이브러리</button>
+      <button data-tab="library" class="active">내 라이브러리</button>
       <button data-tab="routine">루틴 만들기</button>
       <button data-tab="history">기록 내역</button>
+      <button data-tab="dictionary">운동 사전</button>
     </nav>
   </div>
 </header>
@@ -245,6 +262,35 @@
       <div class="sheet-wrap" style="margin-top:10px;">
         <div class="sheet-page" id="sheet-page"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ========== 운동 사전 ========== -->
+  <section class="tab" id="tab-dictionary">
+    <div class="panel">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;">운동 사전 <span class="badge" id="dict-count">0</span></h2>
+        <input type="search" id="dict-search" placeholder="이름/근육/장비 검색 (한/영)" style="max-width: 320px;" />
+      </div>
+      <div class="search-filters" style="margin-top: 8px;">
+        <select id="dict-filter-cat"><option value="">전체 카테고리</option></select>
+        <select id="dict-filter-eq"><option value="">전체 장비</option></select>
+        <select id="dict-filter-target"><option value="">전체 타깃 근육</option></select>
+      </div>
+      <p class="hint">카드를 클릭하면 GIF · 영문 원문 수행 방법 등 상세 정보를 볼 수 있습니다.</p>
+      <div id="dict-grid" class="grid" style="margin-top:12px;"></div>
+      <div id="dict-more" style="text-align:center; margin-top: 10px;"></div>
+    </div>
+
+    <div class="panel" id="dict-detail-panel" style="display:none;">
+      <div class="toolbar" style="justify-content: space-between;">
+        <h2 style="margin:0;" id="dict-detail-title">상세</h2>
+        <div class="top-actions">
+          <button class="ghost" id="dict-detail-edit">한글 편집</button>
+          <button class="ghost" id="dict-detail-close">닫기</button>
+        </div>
+      </div>
+      <div id="dict-detail-body" style="margin-top: 12px;"></div>
     </div>
   </section>
 </main>
@@ -710,6 +756,13 @@ function refreshAfterEdit() {
     const r = routines.find((x) => x.id === previewRoutineId);
     if (r) sheetPage.innerHTML = renderSheet(r);
   }
+  // 운동 사전 탭도 함께 리프레시 (init 이후에만 의미 있음)
+  if (typeof renderDictionary === "function" && seedExercises.length) {
+    renderDictionary();
+    if (dictCurrentDetailId && dictDetailPanel.style.display !== "none") {
+      openDictionaryDetail(dictCurrentDetailId);
+    }
+  }
 }
 
 function openEdit(source, refId) {
@@ -778,9 +831,16 @@ function populateFilters() {
     const used = new Set(seedExercises.map((s) => mapper(s)));
     return order.filter((c) => used.has(c));
   };
-  fill(rtFilterCat,    orderedFor((s) => mapCategory(s.category),  CATEGORY_ORDER),  "전체 카테고리");
-  fill(rtFilterEq,     orderedFor((s) => mapEquipment(s.equipment), EQUIPMENT_ORDER), "전체 장비");
-  fill(rtFilterTarget, orderedFor((s) => mapTarget(s.target),       TARGET_ORDER),    "전체 타깃 근육");
+  const cats    = orderedFor((s) => mapCategory(s.category),  CATEGORY_ORDER);
+  const eqs     = orderedFor((s) => mapEquipment(s.equipment), EQUIPMENT_ORDER);
+  const targets = orderedFor((s) => mapTarget(s.target),       TARGET_ORDER);
+  fill(rtFilterCat,    cats,    "전체 카테고리");
+  fill(rtFilterEq,     eqs,     "전체 장비");
+  fill(rtFilterTarget, targets, "전체 타깃 근육");
+  // 운동 사전 탭의 동일한 dropdown 도 채움
+  fill(document.getElementById("dict-filter-cat"),    cats,    "전체 카테고리");
+  fill(document.getElementById("dict-filter-eq"),     eqs,     "전체 장비");
+  fill(document.getElementById("dict-filter-target"), targets, "전체 타깃 근육");
 }
 
 function renderSearchResults() {
@@ -1126,6 +1186,135 @@ function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// ============ 운동 사전 탭 ============
+const dictGrid    = document.getElementById("dict-grid");
+const dictCount   = document.getElementById("dict-count");
+const dictMore    = document.getElementById("dict-more");
+const dictSearch  = document.getElementById("dict-search");
+const dictFilterCat    = document.getElementById("dict-filter-cat");
+const dictFilterEq     = document.getElementById("dict-filter-eq");
+const dictFilterTarget = document.getElementById("dict-filter-target");
+const dictDetailPanel = document.getElementById("dict-detail-panel");
+const dictDetailBody  = document.getElementById("dict-detail-body");
+const dictDetailTitle = document.getElementById("dict-detail-title");
+let dictDisplayLimit = 60;
+let dictCurrentDetailId = null;
+
+[dictSearch, dictFilterCat, dictFilterEq, dictFilterTarget].forEach((el) =>
+  el.addEventListener("input", () => { dictDisplayLimit = 60; renderDictionary(); }));
+document.getElementById("dict-detail-close").addEventListener("click", () => {
+  dictDetailPanel.style.display = "none";
+  dictCurrentDetailId = null;
+});
+document.getElementById("dict-detail-edit").addEventListener("click", () => {
+  if (dictCurrentDetailId) openEdit("seed", dictCurrentDetailId);
+});
+
+function filteredSeed() {
+  const q   = (dictSearch.value || "").toLowerCase().trim();
+  const fCat    = dictFilterCat.value;
+  const fEq     = dictFilterEq.value;
+  const fTarget = dictFilterTarget.value;
+  return seedExercises.filter((s) => {
+    if (q) {
+      const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+      const hay = [s.name, ko.name_ko, ko.summary_ko, mapCategory(s.category), mapEquipment(s.equipment), mapTarget(s.target)]
+        .filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (fCat    && mapCategory(s.category)    !== fCat)    return false;
+    if (fEq     && mapEquipment(s.equipment)  !== fEq)     return false;
+    if (fTarget && mapTarget(s.target)        !== fTarget) return false;
+    return true;
+  });
+}
+
+function renderDictionary() {
+  if (!seedExercises.length) {
+    dictGrid.innerHTML = `<div class="empty">공개 데이터셋 로딩 중...</div>`;
+    dictCount.textContent = 0;
+    dictMore.innerHTML = "";
+    return;
+  }
+  const list = filteredSeed();
+  dictCount.textContent = list.length.toLocaleString();
+  if (list.length === 0) {
+    dictGrid.innerHTML = `<div class="empty">검색 결과 없음</div>`;
+    dictMore.innerHTML = "";
+    return;
+  }
+  const visible = list.slice(0, dictDisplayLimit);
+  dictGrid.innerHTML = visible.map((s) => {
+    const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+    const name = escapeHtml(ko.name_ko || s.name);
+    const showEn = (ko.name_ko && ko.name_ko !== s.name) ? escapeHtml(s.name) : "";
+    const meta = [mapTarget(s.target), mapEquipment(s.equipment)].filter(Boolean).join(" · ");
+    return `
+      <div class="card dict-card" data-id="${s.id}">
+        <div class="thumb"><img src="${SEED_BASE_URL}${s.image}" alt="" loading="lazy" /></div>
+        <div class="meta">
+          <div class="name">${name}</div>
+          ${showEn ? `<div class="name-en">${showEn}</div>` : ""}
+          <div class="desc">${escapeHtml(meta)}</div>
+        </div>
+      </div>`;
+  }).join("");
+  dictGrid.querySelectorAll(".card").forEach((c) =>
+    c.addEventListener("click", () => openDictionaryDetail(c.dataset.id)));
+
+  if (list.length > dictDisplayLimit) {
+    dictMore.innerHTML = `<button class="ghost" id="dict-more-btn">더 보기 (${list.length - dictDisplayLimit}개 남음)</button>`;
+    document.getElementById("dict-more-btn").addEventListener("click", () => {
+      dictDisplayLimit += 60;
+      renderDictionary();
+    });
+  } else {
+    dictMore.innerHTML = "";
+  }
+}
+
+function openDictionaryDetail(id) {
+  const s = seedById.get(id);
+  if (!s) return;
+  dictCurrentDetailId = id;
+  const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+  const name = ko.name_ko || s.name;
+  const showEn = (ko.name_ko && ko.name_ko !== s.name) ? s.name : "";
+  const summary = ko.summary_ko || "";
+  const stepsEn = (s.instruction_steps && s.instruction_steps.en) || [];
+  const fallbackParaEn = (s.instructions && s.instructions.en) || "";
+
+  dictDetailTitle.textContent = name;
+
+  const stepsHtml = stepsEn.length
+    ? `<ol class="steps">${stepsEn.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`
+    : (fallbackParaEn ? `<p style="font-size:13px;line-height:1.5;">${escapeHtml(fallbackParaEn)}</p>` : `<p class="empty">수행 방법 정보가 없습니다.</p>`);
+
+  dictDetailBody.innerHTML = `
+    <div class="dict-detail dict-detail-grid">
+      <div>
+        <div class="dict-detail-img">
+          <img src="${SEED_BASE_URL}${s.gif_url || s.image}" alt="" />
+        </div>
+        <div class="meta-line">ID: ${s.id} · 출처: hasaneyldrm/exercises-dataset (비상업·교육용)</div>
+      </div>
+      <div>
+        <h3>${escapeHtml(name)}</h3>
+        ${showEn ? `<div class="name-en">${escapeHtml(showEn)}</div>` : ""}
+        <div class="chips">
+          <span class="chip">${escapeHtml(mapCategory(s.category))}</span>
+          <span class="chip">${escapeHtml(mapTarget(s.target))}</span>
+          <span class="chip">${escapeHtml(mapEquipment(s.equipment))}</span>
+        </div>
+        ${summary ? `<div class="summary">${escapeHtml(summary)}</div>` : ""}
+        <div class="steps-title">수행 방법 (영문 원문)</div>
+        ${stepsHtml}
+      </div>
+    </div>`;
+  dictDetailPanel.style.display = "block";
+  dictDetailPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // ============ Init ============
 function initPaletteSwitcher() {
   const sel = document.getElementById("palette-select");
@@ -1173,6 +1362,7 @@ async function init() {
     status.textContent = `공개 데이터셋 ${seedExercises.length.toLocaleString()}개` +
       (sharedKoCount ? ` · 공유 한글 ${sharedKoCount.toLocaleString()}개` : "") +
       (userKoCount ? ` · 내 수정 ${userKoCount.toLocaleString()}개` : "");
+    renderDictionary();
     // 시드 의존 화면 재렌더
     renderRoutineItems();
     if (previewRoutineId) {
