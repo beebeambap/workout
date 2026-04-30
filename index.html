@@ -211,6 +211,21 @@
       </div>
       <div id="lib-grid" class="grid" style="margin-top:12px;"></div>
     </div>
+
+    <div class="panel">
+      <h2>데이터 백업 / 복원</h2>
+      <p class="hint" style="margin: 0 0 10px;">
+        이 페이지의 모든 데이터(업로드 동작 · 저장 루틴 · 시드 한글 수정 · 테마 설정)는 이 브라우저에만 저장됩니다.
+        다른 기기로 옮기거나 손실에 대비하려면 정기적으로 JSON으로 내보내세요.
+      </p>
+      <div class="toolbar">
+        <button class="primary" id="data-export">전체 백업 내보내기</button>
+        <button class="ghost"   id="data-import-merge">백업 가져오기 (병합)</button>
+        <button class="ghost"   id="data-import-replace">백업 가져오기 (덮어쓰기)</button>
+        <input type="file" id="data-import-file" accept="application/json,.json" style="display:none;" />
+        <span id="data-stats" class="hint" style="margin-left:auto;"></span>
+      </div>
+    </div>
   </section>
 
   <!-- ========== 루틴 만들기 ========== -->
@@ -789,6 +804,7 @@ function refreshAfterEdit() {
       openDictionaryDetail(dictCurrentDetailId);
     }
   }
+  if (typeof updateDataStats === "function") updateDataStats();
 }
 
 function openEdit(source, refId) {
@@ -1043,6 +1059,7 @@ document.getElementById("rt-save").addEventListener("click", () => {
   save(KEYS.routines, routines);
   resetRoutineBuilder();
   renderHistory();
+  if (typeof updateDataStats === "function") updateDataStats();
   switchTab("history");
 });
 
@@ -1356,6 +1373,112 @@ function openDictionaryDetail(id) {
   if (inlineEdit) inlineEdit.addEventListener("click", () => openEdit("seed", id));
 }
 
+// ============ 데이터 백업 / 복원 ============
+const BACKUP_SCHEMA = "workout.backup.v1";
+let pendingImportMode = "merge"; // "merge" | "replace"
+
+function updateDataStats() {
+  const el = document.getElementById("data-stats");
+  if (!el) return;
+  const n_ex  = exercises.length;
+  const n_rt  = routines.length;
+  const n_ovr = Object.keys(seedOverrides).length;
+  el.textContent = `내 동작 ${n_ex}개 · 루틴 ${n_rt}개 · 시드 한글 수정 ${n_ovr}개`;
+}
+
+function exportAllData() {
+  const data = {
+    schema: BACKUP_SCHEMA,
+    exportedAt: new Date().toISOString(),
+    exercises:     exercises,
+    routines:      routines,
+    seedOverrides: seedOverrides,
+    palette:       localStorage.getItem(PALETTE_KEY) || null,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `workout-backup-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importDataFromFile(file, mode) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); }
+    catch (e) { alert("JSON 파일을 읽을 수 없습니다: " + e.message); return; }
+
+    if (data.schema && data.schema !== BACKUP_SCHEMA) {
+      if (!confirm(`다른 스키마(${data.schema})로 내보낸 백업입니다. 그래도 가져올까요?`)) return;
+    }
+
+    const importEx     = Array.isArray(data.exercises)     ? data.exercises     : [];
+    const importRt     = Array.isArray(data.routines)      ? data.routines      : [];
+    const importOvr    = (data.seedOverrides && typeof data.seedOverrides === "object") ? data.seedOverrides : {};
+    const importPal    = data.palette;
+
+    if (mode === "replace") {
+      exercises     = importEx;
+      routines      = importRt;
+      seedOverrides = importOvr;
+    } else { // merge — 같은 id 충돌 시 백업 데이터 우선
+      const exMap = new Map(exercises.map((e) => [e.id, e]));
+      for (const e of importEx) exMap.set(e.id, e);
+      exercises = Array.from(exMap.values());
+
+      const rtMap = new Map(routines.map((r) => [r.id, r]));
+      for (const r of importRt) rtMap.set(r.id, r);
+      routines = Array.from(rtMap.values());
+
+      seedOverrides = { ...seedOverrides, ...importOvr };
+    }
+
+    save(KEYS.exercises, exercises);
+    save(KEYS.routines, routines);
+    save(KEYS.seedOverrides, seedOverrides);
+
+    // 시드 _ko_user 도 동기화
+    seedById.forEach((s) => { delete s._ko_user; });
+    for (const id of Object.keys(seedOverrides)) {
+      const s = seedById.get(id);
+      if (s) s._ko_user = seedOverrides[id];
+    }
+
+    if (importPal && PALETTES[importPal]) {
+      applyPalette(importPal);
+      const sel = document.getElementById("palette-select");
+      if (sel) sel.value = importPal;
+    }
+
+    refreshAfterEdit();
+    renderHistory();
+    updateDataStats();
+    alert(`가져오기 완료\n· 동작 ${importEx.length}개\n· 루틴 ${importRt.length}개\n· 시드 한글 수정 ${Object.keys(importOvr).length}개\n· 모드: ${mode === "replace" ? "덮어쓰기" : "병합"}`);
+  };
+  reader.onerror = () => alert("파일 읽기 실패");
+  reader.readAsText(file);
+}
+
+function initBackupPanel() {
+  document.getElementById("data-export").addEventListener("click", exportAllData);
+  const fileInput = document.getElementById("data-import-file");
+  document.getElementById("data-import-merge").addEventListener("click", () => {
+    pendingImportMode = "merge"; fileInput.value = ""; fileInput.click();
+  });
+  document.getElementById("data-import-replace").addEventListener("click", () => {
+    if (!confirm("현재 데이터가 모두 백업 파일의 내용으로 교체됩니다. 진행할까요?")) return;
+    pendingImportMode = "replace"; fileInput.value = ""; fileInput.click();
+  });
+  fileInput.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) importDataFromFile(f, pendingImportMode);
+  });
+  updateDataStats();
+}
+
 // ============ Init ============
 function initPaletteSwitcher() {
   const sel = document.getElementById("palette-select");
@@ -1371,6 +1494,7 @@ function initPaletteSwitcher() {
 
 async function init() {
   initPaletteSwitcher();
+  initBackupPanel();
   rtDate.value = currentRoutine.date;
   migrateRoutineItems();
   renderLibrary();
