@@ -22,7 +22,8 @@
     --radius: 10px;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; -webkit-overflow-scrolling: touch; }
+  body { overflow-x: hidden; }
   header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   header h1 { margin: 0; font-size: 18px; }
   .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -53,7 +54,7 @@
   .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .card .desc { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .empty { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; }
-  .search-results { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; display: none; }
+  .search-results { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; display: none; }
   .search-results.open { display: block; }
   .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
   .search-results li:hover { background: var(--accent-soft); }
@@ -154,9 +155,14 @@
   /* dictionary detail */
   .dict-card .name-en { font-size: 11px; color: var(--muted); font-style: italic; }
   .dict-detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
-  @media (max-width: 720px) { .dict-detail-grid { grid-template-columns: 1fr; } }
   .dict-detail-img { width: 100%; aspect-ratio: 1/1; background: var(--ph); border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .dict-detail-img img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+  @media (max-width: 720px) {
+    .dict-detail-grid { grid-template-columns: 1fr; }
+    /* 모바일에서 GIF 가 작게 보이는 문제 — 정사각 박스 제한 풀고 가로 폭 가득 채움 */
+    .dict-detail-img { aspect-ratio: auto; min-height: 0; }
+    .dict-detail-img img { width: 100%; max-width: 100%; height: auto; max-height: 70vh; }
+  }
   .dict-detail h3 { margin: 0 0 4px; font-size: 18px; }
   .dict-detail .name-en { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 8px; }
   .dict-detail .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -607,9 +613,9 @@ function resolveExercise(item) {
     const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
     return {
       source: "seed",
-      name: ko.name_ko || s.name,
-      nameEn: s.name,            // 영문 원문은 항상 보존
-      description: ko.summary_ko || enDesc,
+      name: ko.name_ko || s.name,                  // 한글 없으면 영문 원문
+      nameEn: s.name,
+      description: ko.summary_ko || "",            // 한글 요약이 없으면 빈 값(렌더러에서 meta 표기)
       descriptionEn: enDesc,
       image: SEED_BASE_URL + s.image,
       gif:   SEED_BASE_URL + s.gif_url,
@@ -1354,17 +1360,21 @@ function openDictionaryDetail(id) {
   const showEn = (ko.name_ko && ko.name_ko !== s.name) ? s.name : "";
   const summary = ko.summary_ko || "";
   const stepsKo = Array.isArray(ko.steps_ko) ? ko.steps_ko : [];
+  const stepsEn = (s.instruction_steps && s.instruction_steps.en) || [];
 
   dictDetailTitle.textContent = name;
 
-  // 수행 방법: 한글만 노출. 한글이 없으면 안내 문구.
+  // 수행 방법: 한글이 있으면 한글, 없으면 영문 원문 노출
   let stepsHtml = "";
   if (stepsKo.length) {
     stepsHtml += `<div class="steps-title">수행 방법</div>`;
     stepsHtml += `<ol class="steps">${stepsKo.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`;
+  } else if (stepsEn.length) {
+    stepsHtml += `<div class="steps-title">How to (영문 원문 — 한글 번역 미작성)</div>`;
+    stepsHtml += `<ol class="steps">${stepsEn.map((st) => `<li>${escapeHtml(st)}</li>`).join("")}</ol>`;
+    stepsHtml += `<p style="margin-top:8px;"><button class="ghost" id="dict-detail-edit-here">한글로 추가하기</button></p>`;
   } else {
-    stepsHtml += `<div class="steps-title">수행 방법</div>`;
-    stepsHtml += `<p class="empty" style="text-align:left; padding-left:0;">아직 한글 수행 방법이 등록되지 않았습니다. <button class="ghost" id="dict-detail-edit-here" style="margin-left:6px;">한글로 추가하기</button></p>`;
+    stepsHtml += `<p class="empty" style="text-align:left; padding-left:0;">수행 방법 정보가 없습니다.</p>`;
   }
 
   dictDetailBody.innerHTML = `
