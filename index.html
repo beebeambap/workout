@@ -59,7 +59,9 @@
   .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
   .item .ic-meta .ic-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .item .ic-controls { display: flex; gap: 6px; align-items: center; }
-  .item .ic-controls select { width: 70px; padding: 6px; }
+  .item .ic-controls input[type="number"] { width: 64px; padding: 6px 4px; text-align: center; -moz-appearance: textfield; }
+  .item .ic-controls input[type="number"]::-webkit-outer-spin-button,
+  .item .ic-controls input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: auto; margin: 0; }
   .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; flex-wrap: wrap; }
   .history-row .meta { display: flex; flex-direction: column; }
   .history-row .title { font-weight: 600; font-size: 14px; }
@@ -85,8 +87,8 @@
   .sheet-table th, .sheet-table td { border: 1px solid var(--border); padding: 10px 8px; vertical-align: middle; }
   .sheet-table thead th { background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; text-align: center; }
   .sheet-table .col-num { width: 48px; text-align: center; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
-  .sheet-table .col-img { width: 130px; text-align: center; }
-  .sheet-table .col-img .img-box { width: 100%; height: 110px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .sheet-table .col-img { width: 200px; text-align: center; }
+  .sheet-table .col-img .img-box { width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .sheet-table .col-img img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
   .sheet-table .col-info .name { font-weight: 700; font-size: 14px; }
   .sheet-table .col-info .desc { font-size: 12px; color: #4b5563; margin-top: 4px; white-space: pre-wrap; }
@@ -266,6 +268,22 @@ const SEED_BASE_URL  = "https://raw.githubusercontent.com/hasaneyldrm/exercises-
 const SEED_JSON_URL  = SEED_BASE_URL + "data/exercises.json";
 const SEED_CACHE_KEY = "seed.exercises.v1";
 const SEED_TTL_MS    = 7 * 24 * 60 * 60 * 1000;
+
+// 시드 카테고리(10종) → 한국어 큰 분류(7+1) 매핑
+const CATEGORY_MAP = {
+  "chest":      "가슴",
+  "back":       "등",
+  "shoulders":  "어깨",
+  "upper arms": "팔",
+  "lower arms": "팔",
+  "waist":      "복부",
+  "upper legs": "다리",
+  "lower legs": "다리",
+  "cardio":     "유산소",
+  "neck":       "기타",
+};
+const CATEGORY_ORDER = ["가슴", "등", "어깨", "팔", "복부", "다리", "유산소", "기타"];
+function mapCategory(c) { return CATEGORY_MAP[c] || "기타"; }
 
 let seedExercises = [];          // [{id,name,category,equipment,target,image,gif_url,...}]
 let seedById      = new Map();   // id -> seed entry
@@ -535,9 +553,12 @@ function populateFilters() {
     sel.innerHTML = `<option value="">${label}</option>` +
       vals.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
   };
-  fill(rtFilterCat,    setFor("category"),  "전체 카테고리");
-  fill(rtFilterEq,     setFor("equipment"), "전체 장비");
-  fill(rtFilterTarget, setFor("target"),    "전체 타깃 근육");
+  // 카테고리는 시드 원본을 7+1 한국어 분류로 매핑한 결과로 채움
+  const usedKoCats = Array.from(new Set(seedExercises.map((s) => mapCategory(s.category))));
+  const orderedKoCats = CATEGORY_ORDER.filter((c) => usedKoCats.includes(c));
+  fill(rtFilterCat,    orderedKoCats,        "전체 카테고리");
+  fill(rtFilterEq,     setFor("equipment"),  "전체 장비");
+  fill(rtFilterTarget, setFor("target"),     "전체 타깃 근육");
 }
 
 function renderSearchResults() {
@@ -559,13 +580,13 @@ function renderSearchResults() {
           desc: e.description || "",
         }));
 
-  // seed: 텍스트 + 3개 필터
+  // seed: 텍스트 + 3개 필터 (카테고리는 한국어 매핑 기준)
   const seedList = seedExercises
     .filter((s) => {
       if (q && !s.name.toLowerCase().includes(q)) return false;
-      if (fCat    && s.category  !== fCat)    return false;
-      if (fEq     && s.equipment !== fEq)     return false;
-      if (fTarget && s.target    !== fTarget) return false;
+      if (fCat    && mapCategory(s.category) !== fCat) return false;
+      if (fEq     && s.equipment !== fEq)             return false;
+      if (fTarget && s.target    !== fTarget)         return false;
       return true;
     })
     .slice(0, 50)
@@ -611,8 +632,6 @@ function renderRoutineItems() {
     rtItems.innerHTML = `<div class="empty">위에서 동작을 검색해 추가하세요.</div>`;
     return;
   }
-  const setsOpts = numOptions(1, 10);
-  const repsOpts = numOptions(1, 50);
   rtItems.innerHTML = currentRoutine.items.map((it, idx) => {
     const r = resolveExercise(it);
     const img  = r ? r.image : "";
@@ -628,35 +647,31 @@ function renderRoutineItems() {
         </div>
         <div class="ic-controls">
           <label style="margin:0;">세트</label>
-          <select data-role="sets">${optionsWithSelected(setsOpts, it.sets)}</select>
+          <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
           <label style="margin:0;">회</label>
-          <select data-role="reps">${optionsWithSelected(repsOpts, it.reps)}</select>
+          <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
           <button class="danger" data-role="rm">삭제</button>
         </div>
       </div>`;
   }).join("");
   rtItems.querySelectorAll(".item").forEach((row) => {
     const idx = Number(row.dataset.idx);
-    row.querySelector('select[data-role="sets"]').addEventListener("change", (e) => {
-      currentRoutine.items[idx].sets = Number(e.target.value);
-    });
-    row.querySelector('select[data-role="reps"]').addEventListener("change", (e) => {
-      currentRoutine.items[idx].reps = Number(e.target.value);
-    });
+    const onChange = (role) => (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v) && v >= 1) {
+        currentRoutine.items[idx][role] = v;
+      } else {
+        // 빈 값/0 등은 1로 보정
+        e.target.value = currentRoutine.items[idx][role];
+      }
+    };
+    row.querySelector('input[data-role="sets"]').addEventListener("change", onChange("sets"));
+    row.querySelector('input[data-role="reps"]').addEventListener("change", onChange("reps"));
     row.querySelector('button[data-role="rm"]').addEventListener("click", () => {
       currentRoutine.items.splice(idx, 1);
       renderRoutineItems();
     });
   });
-}
-
-function numOptions(from, to) {
-  const arr = [];
-  for (let i = from; i <= to; i++) arr.push(i);
-  return arr;
-}
-function optionsWithSelected(arr, sel) {
-  return arr.map((n) => `<option value="${n}" ${n === sel ? "selected" : ""}>${n}</option>`).join("");
 }
 
 document.getElementById("rt-clear").addEventListener("click", () => {
@@ -815,7 +830,7 @@ function renderSheet(r) {
     <table class="sheet-table">
       <colgroup>
         <col style="width:48px;" />
-        <col style="width:130px;" />
+        <col style="width:200px;" />
         <col />
         <col style="width:96px;" />
       </colgroup>
