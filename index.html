@@ -58,6 +58,13 @@
   .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
   .search-results li:hover { background: var(--accent-soft); }
   .search-results img { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; background: var(--ph); }
+  .search-results .edit-btn,
+  .item .edit-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;
+  }
+  .search-results .edit-btn:hover,
+  .item .edit-btn:hover { color: var(--accent); border-color: var(--accent); }
   .item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; }
   .item img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--ph); }
   .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
@@ -240,10 +247,11 @@
   </section>
 </main>
 
-<!-- 라이브러리 카드 편집 모달 -->
+<!-- 동작 편집 모달 (로컬·시드 공용) -->
 <div class="modal-bg" id="edit-modal">
   <div class="modal">
-    <h3>동작 편집</h3>
+    <h3 id="ed-title">동작 편집</h3>
+    <p id="ed-hint" style="font-size:11px;color:var(--muted);margin:0 0 8px;"></p>
     <img class="preview" id="ed-preview" alt="" />
     <label>이름</label>
     <input type="text" id="ed-name" />
@@ -252,7 +260,8 @@
     <textarea id="ed-desc"></textarea>
     <div class="modal-actions">
       <button class="danger" id="ed-delete">삭제</button>
-      <button class="ghost" id="ed-cancel">취소</button>
+      <button class="ghost"  id="ed-reset" style="display:none;">원본으로 되돌리기</button>
+      <button class="ghost"  id="ed-cancel">취소</button>
       <button class="primary" id="ed-save">저장</button>
     </div>
   </div>
@@ -320,13 +329,18 @@ function applyPalette(id) {
 }
 
 // ============ Storage ============
-const KEYS = { exercises: "workout.exercises.v1", routines: "workout.routines.v1" };
+const KEYS = {
+  exercises:     "workout.exercises.v1",
+  routines:      "workout.routines.v1",
+  seedOverrides: "workout.seedOverrides.v1",  // 시드 동작에 대한 사용자 개인 한글 수정
+};
 const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-let exercises = load(KEYS.exercises, []);
-let routines = load(KEYS.routines, []);
+let exercises      = load(KEYS.exercises, []);
+let routines       = load(KEYS.routines, []);
+let seedOverrides  = load(KEYS.seedOverrides, {}); // { "0001": { name_ko, summary_ko }, ... }
 
 // ============ Seed dataset (hasaneyldrm/exercises-dataset) ============
 // 비상업 / 교육·연구 목적 사용. 출처: https://github.com/hasaneyldrm/exercises-dataset
@@ -478,8 +492,8 @@ function resolveExercise(item) {
     if (!s) return null;
     const steps = (s.instruction_steps && s.instruction_steps.en) || [];
     const enDesc = steps.length ? steps.join(" ") : (s.instructions && s.instructions.en) || "";
-    // 한글 오버레이 우선
-    const ko = s._ko || {};
+    // 한글 오버레이: 공유(name_ko.json) 위에 사용자 개인 수정이 덮어씀
+    const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
     return {
       source: "seed",
       name: ko.name_ko || s.name,
@@ -615,43 +629,108 @@ function renderLibrary() {
         <div class="desc">${escapeHtml(e.description || "설명 없음")}</div>
       </div>
     </div>`).join("");
-  libGrid.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openEdit(c.dataset.id)));
+  libGrid.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openEdit("local", c.dataset.id)));
 }
 
-// ============ 라이브러리 편집 모달 ============
+// ============ 동작 편집 모달 (로컬 / 시드 공용) ============
 const edModal = document.getElementById("edit-modal");
 const edPreview = document.getElementById("ed-preview");
 const edName = document.getElementById("ed-name");
 const edDesc = document.getElementById("ed-desc");
-let editingExerciseId = null;
+const edTitle = document.getElementById("ed-title");
+const edHint = document.getElementById("ed-hint");
+const edDelete = document.getElementById("ed-delete");
+const edReset = document.getElementById("ed-reset");
+let editingItemSource = null; // 'local' | 'seed'
+let editingItemId = null;
 
 document.getElementById("ed-cancel").addEventListener("click", () => edModal.classList.remove("open"));
-document.getElementById("ed-save").addEventListener("click", () => {
-  const ex = exercises.find((e) => e.id === editingExerciseId);
-  if (!ex) return;
-  ex.name = edName.value.trim() || ex.name;
-  ex.description = edDesc.value.trim();
-  ex.updatedAt = Date.now();
-  save(KEYS.exercises, exercises);
-  edModal.classList.remove("open");
-  renderLibrary();
-});
-document.getElementById("ed-delete").addEventListener("click", () => {
-  if (!confirm("이 동작을 삭제할까요? 라이브러리에서만 제거되며 이미 저장된 루틴은 그대로 유지됩니다.")) return;
-  exercises = exercises.filter((e) => e.id !== editingExerciseId);
-  save(KEYS.exercises, exercises);
-  edModal.classList.remove("open");
-  renderLibrary();
-});
 edModal.addEventListener("click", (e) => { if (e.target === edModal) edModal.classList.remove("open"); });
 
-function openEdit(id) {
-  const ex = exercises.find((e) => e.id === id);
-  if (!ex) return;
-  editingExerciseId = id;
-  edPreview.src = ex.imageDataUrl;
-  edName.value = ex.name;
-  edDesc.value = ex.description || "";
+document.getElementById("ed-save").addEventListener("click", () => {
+  const newName = edName.value.trim();
+  const newDesc = edDesc.value.trim();
+  if (editingItemSource === "local") {
+    const ex = exercises.find((e) => e.id === editingItemId);
+    if (!ex) return;
+    ex.name = newName || ex.name;
+    ex.description = newDesc;
+    ex.updatedAt = Date.now();
+    save(KEYS.exercises, exercises);
+  } else if (editingItemSource === "seed") {
+    const s = seedById.get(editingItemId);
+    if (!s) return;
+    const override = {};
+    if (newName) override.name_ko    = newName;
+    if (newDesc) override.summary_ko = newDesc;
+    if (Object.keys(override).length === 0) {
+      delete seedOverrides[editingItemId];
+      delete s._ko_user;
+    } else {
+      seedOverrides[editingItemId] = override;
+      s._ko_user = override;
+    }
+    save(KEYS.seedOverrides, seedOverrides);
+  }
+  edModal.classList.remove("open");
+  refreshAfterEdit();
+});
+
+edDelete.addEventListener("click", () => {
+  if (editingItemSource !== "local") return;
+  if (!confirm("이 동작을 삭제할까요? 라이브러리에서만 제거되며 이미 저장된 루틴은 그대로 유지됩니다.")) return;
+  exercises = exercises.filter((e) => e.id !== editingItemId);
+  save(KEYS.exercises, exercises);
+  edModal.classList.remove("open");
+  refreshAfterEdit();
+});
+
+edReset.addEventListener("click", () => {
+  if (editingItemSource !== "seed") return;
+  if (!confirm("이 동작의 한글 수정을 지우고 공유/영문 원본으로 되돌릴까요?")) return;
+  delete seedOverrides[editingItemId];
+  const s = seedById.get(editingItemId);
+  if (s) delete s._ko_user;
+  save(KEYS.seedOverrides, seedOverrides);
+  edModal.classList.remove("open");
+  refreshAfterEdit();
+});
+
+function refreshAfterEdit() {
+  renderLibrary();
+  renderRoutineItems();
+  if (rtResults.classList.contains("open")) renderSearchResults();
+  if (previewRoutineId) {
+    const r = routines.find((x) => x.id === previewRoutineId);
+    if (r) sheetPage.innerHTML = renderSheet(r);
+  }
+}
+
+function openEdit(source, refId) {
+  editingItemSource = source;
+  editingItemId = refId;
+  if (source === "local") {
+    const ex = exercises.find((e) => e.id === refId);
+    if (!ex) return;
+    edTitle.textContent = "내 동작 편집";
+    edHint.textContent = "라이브러리에 업로드한 동작입니다. 이름/설명을 수정하거나 삭제할 수 있습니다.";
+    edPreview.src = ex.imageDataUrl;
+    edName.value = ex.name;
+    edDesc.value = ex.description || "";
+    edDelete.style.display = "";
+    edReset.style.display  = "none";
+  } else if (source === "seed") {
+    const s = seedById.get(refId);
+    if (!s) return;
+    const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+    edTitle.textContent = "공개 동작 편집 (한글만)";
+    edHint.textContent  = "공개 데이터셋의 동작입니다. 이미지는 변경 불가, 한글 이름/요약만 내 기기에 저장됩니다.";
+    edPreview.src = SEED_BASE_URL + s.image;
+    edName.value = ko.name_ko || s.name;
+    edDesc.value = ko.summary_ko || "";
+    edDelete.style.display = "none";
+    edReset.style.display  = s._ko_user ? "" : "none";
+  }
   edModal.classList.add("open");
 }
 
@@ -725,7 +804,7 @@ function renderSearchResults() {
   const seedList = seedExercises
     .filter((s) => {
       if (q) {
-        const ko = s._ko || {};
+        const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
         const hay = [s.name, ko.name_ko, ko.summary_ko].filter(Boolean).join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
@@ -736,7 +815,7 @@ function renderSearchResults() {
     })
     .slice(0, 50)
     .map((s) => {
-      const ko = s._ko || {};
+      const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
       return {
         source: "seed", refId: s.id,
         name: ko.name_ko || s.name,
@@ -760,12 +839,20 @@ function renderSearchResults() {
           </div>
           <div style="font-size:11px;color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(row.desc)}</div>
         </div>
+        <button class="edit-btn" data-action="edit" title="이름·설명 편집">편집</button>
       </li>`).join("");
-    rtResults.querySelectorAll("li[data-source]").forEach((li) => li.addEventListener("click", () => {
-      addItem(li.dataset.source, li.dataset.refid);
-      rtSearch.value = "";
-      rtResults.classList.remove("open");
-    }));
+    rtResults.querySelectorAll("li[data-source]").forEach((li) => {
+      li.addEventListener("click", (e) => {
+        if (e.target.closest('[data-action="edit"]')) return; // 편집 버튼은 별도 처리
+        addItem(li.dataset.source, li.dataset.refid);
+        rtSearch.value = "";
+        rtResults.classList.remove("open");
+      });
+      li.querySelector('[data-action="edit"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEdit(li.dataset.source, li.dataset.refid);
+      });
+    });
   }
   rtResults.classList.add("open");
 }
@@ -799,6 +886,7 @@ function renderRoutineItems() {
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
           <label style="margin:0;">세트</label>
           <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
+          <button class="edit-btn" data-role="edit" title="이름·설명 편집">편집</button>
           <button class="danger" data-role="rm">삭제</button>
         </div>
       </div>`;
@@ -819,6 +907,10 @@ function renderRoutineItems() {
     row.querySelector('button[data-role="rm"]').addEventListener("click", () => {
       currentRoutine.items.splice(idx, 1);
       renderRoutineItems();
+    });
+    row.querySelector('button[data-role="edit"]').addEventListener("click", () => {
+      const it2 = currentRoutine.items[idx];
+      openEdit(it2.source || "local", it2.refId);
     });
   });
 }
@@ -1043,18 +1135,28 @@ async function init() {
   try {
     const [seed, koOverlay] = await Promise.all([loadSeed(), loadKoOverlay()]);
     seedExercises = seed;
+    seedById = new Map(seedExercises.map((s) => [s.id, s]));
+
+    // 1차: 공유 한글 (data/name_ko.json)
     if (koOverlay && typeof koOverlay === "object") {
       let n = 0;
       for (const s of seedExercises) {
-        if (koOverlay[s.id]) { s._ko = koOverlay[s.id]; n++; }
+        if (koOverlay[s.id]) { s._ko_shared = koOverlay[s.id]; n++; }
       }
-      console.log(`한글 오버레이: ${n}/${seedExercises.length} 적용됨`);
+      console.log(`공유 한글: ${n}/${seedExercises.length} 적용됨`);
     }
-    seedById = new Map(seedExercises.map((s) => [s.id, s]));
+    // 2차: 사용자 개인 수정 (localStorage)
+    let userKoCount = 0;
+    for (const id of Object.keys(seedOverrides)) {
+      const s = seedById.get(id);
+      if (s) { s._ko_user = seedOverrides[id]; userKoCount++; }
+    }
+
     populateFilters();
-    const koCount = koOverlay ? Object.keys(koOverlay).length : 0;
-    status.textContent = `공개 데이터셋 ${seedExercises.length.toLocaleString()}개 사용 가능` +
-      (koCount ? ` · 한글 ${koCount.toLocaleString()}개` : "");
+    const sharedKoCount = koOverlay ? Object.keys(koOverlay).length : 0;
+    status.textContent = `공개 데이터셋 ${seedExercises.length.toLocaleString()}개` +
+      (sharedKoCount ? ` · 공유 한글 ${sharedKoCount.toLocaleString()}개` : "") +
+      (userKoCount ? ` · 내 수정 ${userKoCount.toLocaleString()}개` : "");
     // 시드 의존 화면 재렌더
     renderRoutineItems();
     if (previewRoutineId) {
