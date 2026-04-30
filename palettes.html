@@ -31,7 +31,8 @@
   .lead { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
 
   /* --- 팔레트 비교 카드 ------------------------------------------- */
-  .palettes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .palette-group-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; letter-spacing: 0.5px; }
+  .palettes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 12px; }
   .palette {
     background: var(--panel); border: 2px solid var(--border); border-radius: 14px;
     padding: 14px; cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
@@ -106,7 +107,7 @@
   <h1>베이지 팔레트 비교</h1>
   <p class="lead">클릭하면 아래 미리보기가 즉시 그 톤으로 바뀝니다. 마음에 드는 팔레트를 정하면 <code>index.html</code> 의 <code>:root</code> 변수에 그대로 적용합니다.</p>
 
-  <div class="palettes" id="palettes"></div>
+  <div id="palettes-root"></div>
 
   <div class="apply-bar">
     <span class="label">선택된 팔레트</span>
@@ -202,25 +203,10 @@
 "use strict";
 
 const PALETTES = [
+  // === 베이지 톤 ===
   {
-    id: "warm-sand",
-    name: "따뜻한 모래 (Warm Sand)",
-    sub: "톡톡한 카라멜 액센트, 부드러운 리넨 배경",
-    vars: {
-      "--bg":          "#f5efe2",
-      "--panel":       "#fbf7ee",
-      "--text":        "#3a2f24",
-      "--muted":       "#8a7e6c",
-      "--accent":      "#a47148",
-      "--accent-soft": "#efe2cf",
-      "--border":      "#e6dcc8",
-      "--danger":      "#b9402c",
-      "--shadow":      "0 2px 8px rgba(60, 40, 20, 0.08)",
-    },
-  },
-  {
-    id: "minimal-latte",
-    name: "미니멀 라떼 (Minimal Latte)",
+    id: "minimal-latte", group: "베이지",
+    name: "미니멀 라떼",
     sub: "흰 패널 + 그레이지 배경, 차분하고 모던",
     vars: {
       "--bg":          "#efeae0",
@@ -235,9 +221,25 @@ const PALETTES = [
     },
   },
   {
-    id: "pale-nude",
-    name: "페일 누드 (Pale Nude)",
-    sub: "밝고 화사한 누드 톤, 로즈탄 액센트",
+    id: "warm-sand", group: "베이지",
+    name: "따뜻한 모래",
+    sub: "톡톡한 카라멜 액센트, 리넨 배경",
+    vars: {
+      "--bg":          "#f5efe2",
+      "--panel":       "#fbf7ee",
+      "--text":        "#3a2f24",
+      "--muted":       "#8a7e6c",
+      "--accent":      "#a47148",
+      "--accent-soft": "#efe2cf",
+      "--border":      "#e6dcc8",
+      "--danger":      "#b9402c",
+      "--shadow":      "0 2px 8px rgba(60, 40, 20, 0.08)",
+    },
+  },
+  {
+    id: "pale-nude", group: "베이지",
+    name: "페일 누드",
+    sub: "화사한 누드 톤, 로즈탄 액센트",
     vars: {
       "--bg":          "#faf6ee",
       "--panel":       "#ffffff",
@@ -251,8 +253,8 @@ const PALETTES = [
     },
   },
   {
-    id: "mocha",
-    name: "모카 톤 (Mocha)",
+    id: "mocha", group: "베이지",
+    name: "모카 톤",
     sub: "진한 카페 분위기, 고대비",
     vars: {
       "--bg":          "#ece4d3",
@@ -266,15 +268,83 @@ const PALETTES = [
       "--shadow":      "0 3px 10px rgba(50, 35, 20, 0.10)",
     },
   },
+
+  // === 블루 톤 ===
+  {
+    id: "cool-blue", group: "블루",
+    name: "쿨 블루",
+    sub: "쿨 톤 그레이 + 비비드 블루 액센트",
+    vars: {
+      "--bg":          "#f4f7fb",
+      "--panel":       "#ffffff",
+      "--text":        "#1a2332",
+      "--muted":       "#64748b",
+      "--accent":      "#2563eb",
+      "--accent-soft": "#dbeafe",
+      "--border":      "#e2e8f0",
+      "--danger":      "#dc2626",
+      "--shadow":      "0 2px 8px rgba(15, 30, 60, 0.06)",
+    },
+  },
+  {
+    id: "deep-navy", group: "블루",
+    name: "딥 네이비",
+    sub: "거의 흰 배경 + 딥 네이비 포인트, 신뢰감",
+    vars: {
+      "--bg":          "#f8fafc",
+      "--panel":       "#ffffff",
+      "--text":        "#0f172a",
+      "--muted":       "#475569",
+      "--accent":      "#1e3a8a",
+      "--accent-soft": "#e0e7ff",
+      "--border":      "#e2e8f0",
+      "--danger":      "#b91c1c",
+      "--shadow":      "0 2px 10px rgba(10, 20, 50, 0.06)",
+    },
+  },
+
+  // === 레드 톤 ===
+  {
+    id: "vivid-red", group: "레드",
+    name: "비비드 레드",
+    sub: "웜화이트 + 크림슨 액센트, 에너지",
+    vars: {
+      "--bg":          "#fdf8f7",
+      "--panel":       "#ffffff",
+      "--text":        "#1c1715",
+      "--muted":       "#78716c",
+      "--accent":      "#dc2626",
+      "--accent-soft": "#fee2e2",
+      "--border":      "#e7e3df",
+      "--danger":      "#92400e",
+      "--shadow":      "0 2px 8px rgba(60, 20, 20, 0.06)",
+    },
+  },
+  {
+    id: "burgundy", group: "레드",
+    name: "버건디",
+    sub: "차분한 크림 + 버건디 와인, 클래식",
+    vars: {
+      "--bg":          "#faf6f3",
+      "--panel":       "#ffffff",
+      "--text":        "#2a1a17",
+      "--muted":       "#8c7770",
+      "--accent":      "#9b2c2c",
+      "--accent-soft": "#f7e0d8",
+      "--border":      "#ebdfd6",
+      "--danger":      "#7a1a1a",
+      "--shadow":      "0 3px 10px rgba(60, 20, 25, 0.08)",
+    },
+  },
 ];
 
-const palettesEl = document.getElementById("palettes");
+const palettesRoot = document.getElementById("palettes-root");
 const selectedNameEl = document.getElementById("selected-name");
 
 function applyPalette(p) {
   const root = document.documentElement;
   for (const [k, v] of Object.entries(p.vars)) root.style.setProperty(k, v);
-  selectedNameEl.textContent = p.name;
+  selectedNameEl.textContent = `${p.group} · ${p.name}`;
   document.querySelectorAll(".palette").forEach((el) => el.classList.toggle("active", el.dataset.id === p.id));
   localStorage.setItem("workout.palette.choice", p.id);
 }
@@ -289,32 +359,45 @@ function buildCodes(p) {
     .map((k) => `${k}: ${p.vars[k]};`).join("<br>");
 }
 
-palettesEl.innerHTML = PALETTES.map((p) => `
-  <div class="palette" data-id="${p.id}">
-    <h3>${p.name}</h3>
-    <div class="sub">${p.sub}</div>
-    <div class="swatches">${buildSwatches(p)}</div>
-    <div class="codes">${buildCodes(p)}</div>
-  </div>`).join("");
+// 그룹 단위로 렌더
+const groups = ["베이지", "블루", "레드"];
+palettesRoot.innerHTML = groups.map((g) => {
+  const items = PALETTES.filter((p) => p.group === g);
+  if (!items.length) return "";
+  const cards = items.map((p) => `
+    <div class="palette" data-id="${p.id}">
+      <h3>${p.name}</h3>
+      <div class="sub">${p.sub}</div>
+      <div class="swatches">${buildSwatches(p)}</div>
+      <div class="codes">${buildCodes(p)}</div>
+    </div>`).join("");
+  return `<div class="palette-group-title">${g}</div><div class="palettes">${cards}</div>`;
+}).join("");
 
-palettesEl.querySelectorAll(".palette").forEach((el) => {
+palettesRoot.querySelectorAll(".palette").forEach((el) => {
   el.addEventListener("click", () => {
     const p = PALETTES.find((x) => x.id === el.dataset.id);
     if (p) applyPalette(p);
   });
 });
 
+function getActivePalette() {
+  const el = document.querySelector(".palette.active");
+  if (!el) return null;
+  return PALETTES.find((p) => p.id === el.dataset.id) || null;
+}
+
 document.getElementById("copy-css").addEventListener("click", () => {
-  const active = PALETTES.find((p) => document.querySelector(`.palette.active[data-id="${p.id}"]`));
+  const active = getActivePalette();
   if (!active) { alert("팔레트를 먼저 클릭하세요."); return; }
   const css = `:root {\n${["--bg","--panel","--text","--muted","--accent","--accent-soft","--border","--danger","--shadow"].map((k) => `  ${k}: ${active.vars[k]};`).join("\n")}\n}`;
   navigator.clipboard.writeText(css).then(() => alert("CSS 변수 블록을 클립보드에 복사했습니다."));
 });
 
 document.getElementById("apply").addEventListener("click", () => {
-  const active = PALETTES.find((p) => document.querySelector(`.palette.active[data-id="${p.id}"]`));
+  const active = getActivePalette();
   if (!active) { alert("팔레트를 먼저 클릭하세요."); return; }
-  alert(`선택: ${active.name}\nClaude에게 "${active.id} 팔레트로 index.html 적용해줘" 라고 말씀해 주시면 그 톤으로 메인 앱을 갱신합니다.`);
+  alert(`선택: ${active.group} · ${active.name}\nClaude에게 "${active.id} 팔레트로 index.html 적용해줘" 라고 말씀해 주시면 그 톤으로 메인 앱을 갱신합니다.`);
 });
 
 // 초기 선택: 마지막 선택한 톤 또는 첫 번째
