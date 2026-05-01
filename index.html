@@ -66,15 +66,33 @@
   }
   .search-results .edit-btn:hover,
   .item .edit-btn:hover { color: var(--accent); border-color: var(--accent); }
-  .item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; }
-  .item img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--ph); }
+  /* 루틴 항목 — 1행: 이미지+이름/설명, 2행: 컨트롤(회·세트·버튼)
+     (모바일에서 한 줄에 모두 들어가지 않아 깨지던 문제 해결) */
+  .item {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    grid-template-areas: "img meta" "ctrl ctrl";
+    gap: 8px 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    margin-bottom: 8px;
+  }
+  .item > img { grid-area: img; width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--ph); }
+  .item .ic-meta { grid-area: meta; align-self: center; min-width: 0; }
   .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
   .item .ic-meta .ic-name-en { font-size: 11px; color: var(--muted); font-weight: 400; font-style: italic; margin-top: 2px; }
   .item .ic-meta .ic-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .item .ic-controls { display: flex; gap: 6px; align-items: center; }
-  .item .ic-controls input[type="number"] { width: 64px; padding: 6px 4px; text-align: center; -moz-appearance: textfield; }
+  .item .ic-controls { grid-area: ctrl; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .item .ic-controls input[type="number"] { width: 60px; padding: 6px 4px; text-align: center; -moz-appearance: textfield; }
   .item .ic-controls input[type="number"]::-webkit-outer-spin-button,
   .item .ic-controls input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: auto; margin: 0; }
+  @media (max-width: 480px) {
+    .item .ic-controls button { font-size: 11px; padding: 5px 8px; }
+    .item .ic-controls input[type="number"] { width: 54px; }
+  }
   .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; flex-wrap: wrap; }
   .history-row .meta { display: flex; flex-direction: column; }
   .history-row .title { font-weight: 600; font-size: 14px; }
@@ -152,16 +170,16 @@
   .search-filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   @media (max-width: 640px) { .search-filters { grid-template-columns: 1fr; } }
 
-  /* dictionary cards & detail — GIF 가 자연 비율로 카드 영역에 맞도록
-     (정사각 박스로 letterbox 가 생기던 문제 해결) */
+  /* dictionary cards & detail — GIF 가 자연 비율로 영역에 맞도록
+     (정사각 박스 letterbox 와 강제 확대 모두 방지) */
   #dict-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .dict-card .name-en { font-size: 11px; color: var(--muted); font-style: italic; }
-  .dict-card .thumb { aspect-ratio: auto; background: var(--ph); display: block; overflow: hidden; }
-  .dict-card .thumb img { width: 100%; height: auto; max-width: 100%; display: block; }
+  .dict-card .thumb { aspect-ratio: auto; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .dict-card .thumb img { max-width: 100%; height: auto; display: block; }
 
   .dict-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
-  .dict-detail-img { width: 100%; background: var(--ph); border-radius: 10px; overflow: hidden; }
-  .dict-detail-img img { width: 100%; height: auto; max-width: 100%; display: block; }
+  .dict-detail-img { width: 100%; background: var(--ph); border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .dict-detail-img img { max-width: 100%; height: auto; display: block; }
   @media (max-width: 720px) {
     /* 모바일 운동 사전 카드 — 3열로 더 촘촘히 */
     #dict-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -170,7 +188,8 @@
     .dict-card .name-en { font-size: 10px; }
     .dict-card .desc { font-size: 10px; }
     .dict-detail-grid { grid-template-columns: 1fr; }
-    .dict-detail-img img { max-height: 70vh; }
+    /* 모달의 GIF 는 자연 크기까지만 표시 — 작은 GIF 가 강제 확대되어 깨지는 문제 방지 */
+    .dict-detail-img img { max-width: 100%; max-height: 60vh; }
   }
   .dict-detail h3 { margin: 0 0 4px; font-size: 18px; }
   .dict-detail .name-en { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 8px; }
@@ -1041,7 +1060,7 @@ function renderRoutineItems() {
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
           <label style="margin:0;">세트</label>
           <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
-          ${it.source === "seed" ? `<button class="edit-btn" data-role="detail" title="운동 사전 상세">상세</button>` : ""}
+          <button class="edit-btn" data-role="detail" title="${it.source === "seed" ? "운동 사전 상세" : "내 동작 상세"}">상세</button>
           <button class="edit-btn" data-role="edit" title="이름·설명 편집">편집</button>
           <button class="danger" data-role="rm">삭제</button>
         </div>
@@ -1072,7 +1091,11 @@ function renderRoutineItems() {
     if (detailBtn) {
       detailBtn.addEventListener("click", () => {
         const it2 = currentRoutine.items[idx];
-        if (it2.source === "seed") openDictionaryDetail(it2.refId);
+        if (it2.source === "seed") {
+          openDictionaryDetail(it2.refId);
+        } else {
+          openLocalDetail(it2.refId);
+        }
       });
     }
   });
@@ -1310,6 +1333,11 @@ document.addEventListener("keydown", (e) => {
 document.getElementById("dict-detail-edit").addEventListener("click", () => {
   if (dictCurrentDetailId) openEdit("seed", dictCurrentDetailId);
 });
+// 모달 열릴 때마다 [한글 편집] 표시 여부 갱신 (시드일 때만 노출)
+function updateDictEditButtonVisibility() {
+  const btn = document.getElementById("dict-detail-edit");
+  if (btn) btn.style.display = dictCurrentDetailId ? "" : "none";
+}
 
 function closeDictionaryDetail() {
   dictDetailModal.classList.remove("open");
@@ -1377,6 +1405,34 @@ function renderDictionary() {
   } else {
     dictMore.innerHTML = "";
   }
+}
+
+// 로컬(사용자 업로드) 동작도 동일한 사전 상세 모달 형식으로 보여줌
+function openLocalDetail(id) {
+  const e = exercises.find((x) => x.id === id);
+  if (!e) return;
+  dictCurrentDetailId = null; // 시드 편집 버튼이 의미 없도록 비움
+  dictDetailTitle.textContent = e.name;
+  dictDetailBody.innerHTML = `
+    <div class="dict-detail dict-detail-grid">
+      <div>
+        <div class="dict-detail-img">
+          <img src="${e.imageDataUrl}" alt="" />
+        </div>
+        <div class="meta-line">내가 업로드한 동작 · ID: ${escapeHtml(e.id)}</div>
+      </div>
+      <div>
+        <h3>${escapeHtml(e.name)}</h3>
+        <div class="chips"><span class="chip">내 라이브러리</span></div>
+        ${e.description
+          ? `<div class="summary">${escapeHtml(e.description)}</div>`
+          : `<p class="empty" style="text-align:left; padding-left:0;">설명이 없습니다. 라이브러리 카드 또는 [편집] 버튼으로 설명을 추가할 수 있습니다.</p>`}
+      </div>
+    </div>`;
+  dictDetailModal.classList.add("open");
+  const modalContent = dictDetailModal.querySelector(".modal");
+  if (modalContent) modalContent.scrollTop = 0;
+  updateDictEditButtonVisibility();
 }
 
 function openDictionaryDetail(id) {
