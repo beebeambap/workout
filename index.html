@@ -152,16 +152,25 @@
   .search-filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   @media (max-width: 640px) { .search-filters { grid-template-columns: 1fr; } }
 
-  /* dictionary detail */
+  /* dictionary cards & detail — GIF 가 자연 비율로 카드 영역에 맞도록
+     (정사각 박스로 letterbox 가 생기던 문제 해결) */
+  #dict-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .dict-card .name-en { font-size: 11px; color: var(--muted); font-style: italic; }
-  .dict-detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
-  .dict-detail-img { width: 100%; aspect-ratio: 1/1; background: var(--ph); border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .dict-detail-img img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+  .dict-card .thumb { aspect-ratio: auto; background: var(--ph); display: block; overflow: hidden; }
+  .dict-card .thumb img { width: 100%; height: auto; max-width: 100%; display: block; }
+
+  .dict-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
+  .dict-detail-img { width: 100%; background: var(--ph); border-radius: 10px; overflow: hidden; }
+  .dict-detail-img img { width: 100%; height: auto; max-width: 100%; display: block; }
   @media (max-width: 720px) {
+    /* 모바일 운동 사전 카드 — 3열로 더 촘촘히 */
+    #dict-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .dict-card .meta { padding: 6px 6px; }
+    .dict-card .name { font-size: 12px; }
+    .dict-card .name-en { font-size: 10px; }
+    .dict-card .desc { font-size: 10px; }
     .dict-detail-grid { grid-template-columns: 1fr; }
-    /* 모바일에서 GIF 가 작게 보이는 문제 — 정사각 박스 제한 풀고 가로 폭 가득 채움 */
-    .dict-detail-img { aspect-ratio: auto; min-height: 0; }
-    .dict-detail-img img { width: 100%; max-width: 100%; height: auto; max-height: 70vh; }
+    .dict-detail-img img { max-height: 70vh; }
   }
   .dict-detail h3 { margin: 0 0 4px; font-size: 18px; }
   .dict-detail .name-en { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 8px; }
@@ -609,13 +618,14 @@ function resolveExercise(item) {
     if (!s) return null;
     const steps = (s.instruction_steps && s.instruction_steps.en) || [];
     const enDesc = steps.length ? steps.join(" ") : (s.instructions && s.instructions.en) || "";
+    const firstStep = steps[0] || "";
     // 한글 오버레이: 공유(name_ko.json) 위에 사용자 개인 수정이 덮어씀
     const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
     return {
       source: "seed",
-      name: ko.name_ko || s.name,                  // 한글 없으면 영문 원문
+      name: ko.name_ko || s.name,                           // 한글 없으면 영문 원문
       nameEn: s.name,
-      description: ko.summary_ko || "",            // 한글 요약이 없으면 빈 값(렌더러에서 meta 표기)
+      description: ko.summary_ko || firstStep,              // 한글 요약 없으면 영문 첫 step (1문장)
       descriptionEn: enDesc,
       image: SEED_BASE_URL + s.image,
       gif:   SEED_BASE_URL + s.gif_url,
@@ -1031,6 +1041,7 @@ function renderRoutineItems() {
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
           <label style="margin:0;">세트</label>
           <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
+          ${it.source === "seed" ? `<button class="edit-btn" data-role="detail" title="운동 사전 상세">상세</button>` : ""}
           <button class="edit-btn" data-role="edit" title="이름·설명 편집">편집</button>
           <button class="danger" data-role="rm">삭제</button>
         </div>
@@ -1057,6 +1068,13 @@ function renderRoutineItems() {
       const it2 = currentRoutine.items[idx];
       openEdit(it2.source || "local", it2.refId);
     });
+    const detailBtn = row.querySelector('button[data-role="detail"]');
+    if (detailBtn) {
+      detailBtn.addEventListener("click", () => {
+        const it2 = currentRoutine.items[idx];
+        if (it2.source === "seed") openDictionaryDetail(it2.refId);
+      });
+    }
   });
 }
 
@@ -1188,6 +1206,13 @@ function openPreview(id) {
   sheetPage.innerHTML = renderSheet(r);
   previewPanel.style.display = "block";
   previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  // 시드 행 클릭 → 운동 사전 상세 모달
+  sheetPage.querySelectorAll('tr[data-source="seed"]').forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const refId = tr.dataset.refid;
+      if (refId) openDictionaryDetail(refId);
+    });
+  });
 }
 
 function renderSheet(r) {
@@ -1198,8 +1223,11 @@ function renderSheet(r) {
     const name = ex ? escapeHtml(ex.name) : "(삭제된 동작)";
     const nameEn = ex && ex.nameEn && ex.nameEn !== ex.name ? escapeHtml(ex.nameEn) : "";
     const desc = ex ? escapeHtml(ex.description || ex.meta || "") : "";
+    const trAttrs = it.source === "seed"
+      ? `data-source="seed" data-refid="${escapeHtml(String(it.refId || ""))}" style="cursor:pointer;" title="클릭하면 운동 사전 상세 보기"`
+      : "";
     return `
-      <tr>
+      <tr ${trAttrs}>
         <td class="col-num">${num}</td>
         <td class="col-img">${img ? `<div class="img-box"><img src="${img}" alt="" crossorigin="anonymous" /></div>` : ""}</td>
         <td class="col-info">
