@@ -326,6 +326,24 @@
           <input type="text" id="rt-title" placeholder="예: 상체의 날" />
         </div>
       </div>
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label>카테고리 (선택)</label>
+          <select id="rt-category">
+            <option value="">선택 안 함</option>
+            <option value="가슴">가슴</option>
+            <option value="등">등</option>
+            <option value="어깨">어깨</option>
+            <option value="팔">팔</option>
+            <option value="복부">복부</option>
+            <option value="다리">다리</option>
+            <option value="유산소">유산소</option>
+            <option value="전신">전신</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
       <div style="margin-top:10px;">
         <label>메모 (선택)</label>
         <textarea id="rt-memo" placeholder="컨디션, 메모 등"></textarea>
@@ -362,6 +380,21 @@
       <div class="toolbar" style="justify-content: space-between;">
         <h2 style="margin:0;">저장된 루틴 <span class="badge" id="hist-count">0</span></h2>
         <input type="search" id="hist-search" placeholder="제목/날짜 검색" style="max-width: 280px;" />
+      </div>
+      <div style="margin-top:8px; max-width: 280px;">
+        <select id="hist-filter-cat" style="font-size: 12px; padding: 6px 10px;">
+          <option value="">전체 카테고리</option>
+          <option value="가슴">가슴</option>
+          <option value="등">등</option>
+          <option value="어깨">어깨</option>
+          <option value="팔">팔</option>
+          <option value="복부">복부</option>
+          <option value="다리">다리</option>
+          <option value="유산소">유산소</option>
+          <option value="전신">전신</option>
+          <option value="기타">기타</option>
+          <option value="__none">미지정</option>
+        </select>
       </div>
       <div id="hist-list" style="margin-top:10px;"></div>
     </div>
@@ -713,7 +746,7 @@ let currentRoutine = newRoutine();
 let editingRoutineId = null; // 기존 루틴 편집 시 해당 id
 
 function newRoutine() {
-  return { id: null, date: todayStr(), title: "", memo: "", items: [], createdAt: null };
+  return { id: null, date: todayStr(), title: "", category: "", memo: "", items: [], createdAt: null };
 }
 function todayStr() {
   const d = new Date();
@@ -922,6 +955,7 @@ function openEdit(source, refId) {
 // ============ 루틴 빌더 ============
 const rtDate = document.getElementById("rt-date");
 const rtTitle = document.getElementById("rt-title");
+const rtCategory = document.getElementById("rt-category");
 const rtMemo = document.getElementById("rt-memo");
 const rtSearch = document.getElementById("rt-search");
 const rtResults = document.getElementById("rt-results");
@@ -933,6 +967,7 @@ const rtCount = document.getElementById("rt-count");
   currentRoutine.title = rtTitle.value;
   currentRoutine.memo = rtMemo.value;
 }));
+rtCategory.addEventListener("change", () => { currentRoutine.category = rtCategory.value; });
 
 const rtFilterCat    = document.getElementById("rt-filter-cat");
 const rtFilterEq     = document.getElementById("rt-filter-eq");
@@ -1147,13 +1182,14 @@ document.getElementById("rt-save").addEventListener("click", () => {
   if (editingRoutineId) {
     const idx = routines.findIndex((r) => r.id === editingRoutineId);
     if (idx >= 0) {
-      routines[idx] = { ...routines[idx], date: currentRoutine.date, title: currentRoutine.title.trim(), memo: currentRoutine.memo, items: currentRoutine.items, updatedAt: Date.now() };
+      routines[idx] = { ...routines[idx], date: currentRoutine.date, title: currentRoutine.title.trim(), category: currentRoutine.category || "", memo: currentRoutine.memo, items: currentRoutine.items, updatedAt: Date.now() };
     }
   } else {
     routines.push({
       id: uid(),
       date: currentRoutine.date,
       title: currentRoutine.title.trim(),
+      category: currentRoutine.category || "",
       memo: currentRoutine.memo,
       items: currentRoutine.items,
       createdAt: Date.now(),
@@ -1171,6 +1207,7 @@ function resetRoutineBuilder() {
   editingRoutineId = null;
   rtDate.value = currentRoutine.date;
   rtTitle.value = "";
+  rtCategory.value = "";
   rtMemo.value = "";
   rtSearch.value = "";
   document.getElementById("editing-banner").classList.remove("open");
@@ -1186,12 +1223,22 @@ document.getElementById("cancel-edit").addEventListener("click", () => {
 const histList = document.getElementById("hist-list");
 const histCount = document.getElementById("hist-count");
 const histSearch = document.getElementById("hist-search");
+const histFilterCat = document.getElementById("hist-filter-cat");
 histSearch.addEventListener("input", renderHistory);
+histFilterCat.addEventListener("change", renderHistory);
 
 function renderHistory() {
   const q = (histSearch.value || "").toLowerCase().trim();
+  const fCat = histFilterCat.value;
   const list = routines
-    .filter((r) => !q || r.title.toLowerCase().includes(q) || r.date.includes(q))
+    .filter((r) => {
+      if (q && !(r.title.toLowerCase().includes(q) || r.date.includes(q))) return false;
+      if (fCat) {
+        if (fCat === "__none") return !r.category;
+        return r.category === fCat;
+      }
+      return true;
+    })
     .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   histCount.textContent = routines.length;
   if (list.length === 0) {
@@ -1201,7 +1248,7 @@ function renderHistory() {
   histList.innerHTML = list.map((r) => `
     <div class="history-row" data-id="${r.id}">
       <div class="meta">
-        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span></div>
+        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span>${r.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(r.category)}</span>` : ""}</div>
         <div class="sub">${r.date}</div>
       </div>
       <div class="top-actions">
@@ -1225,6 +1272,7 @@ function loadRoutine(id) {
     id: r.id,
     date: r.date,
     title: r.title,
+    category: r.category || "",
     memo: r.memo || "",
     items: r.items.map((it) => ({ ...it })),
     createdAt: r.createdAt,
@@ -1232,6 +1280,7 @@ function loadRoutine(id) {
   editingRoutineId = r.id;
   rtDate.value = currentRoutine.date;
   rtTitle.value = currentRoutine.title;
+  rtCategory.value = currentRoutine.category;
   rtMemo.value = currentRoutine.memo;
   document.getElementById("editing-banner-text").textContent = `「${r.title}」(${r.date}) 을(를) 편집 중입니다. 저장하면 기존 기록을 덮어씁니다.`;
   document.getElementById("editing-banner").classList.add("open");
