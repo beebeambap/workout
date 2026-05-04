@@ -273,6 +273,7 @@
         </div>
         <div class="toolbar" style="margin-top:10px;">
           <button type="submit" class="primary">업로드</button>
+          <button type="button" class="ghost" id="ai-prompt-btn">🎨 AI 이미지 프롬프트 생성</button>
           <span class="hint">이미지는 자동으로 800px로 리사이즈되어 저장됩니다.</span>
         </div>
       </form>
@@ -436,6 +437,64 @@
 
   </section>
 </main>
+
+<!-- AI 이미지 프롬프트 생성기 모달 -->
+<div class="modal-bg" id="prompt-modal">
+  <div class="modal modal-lg">
+    <button class="modal-close-x" id="prompt-close-x" aria-label="닫기">×</button>
+    <h3>🎨 AI 이미지 프롬프트 생성기</h3>
+    <p class="hint" style="margin: 0 0 14px;">
+      아래 항목을 채우면 ChatGPT, Midjourney, DALL-E, Stable Diffusion 등에 그대로 붙여넣을 프롬프트를 만들어 드립니다.
+      운동 자세 일러스트 (해부학 스타일, 자극 부위 강조) 생성용으로 최적화되어 있습니다.
+    </p>
+    <div class="row">
+      <div>
+        <label>동작 이름 *</label>
+        <input type="text" id="ap-name" placeholder="예: 푸쉬업 / push-up" />
+      </div>
+      <div>
+        <label>주요 자극 부위 *</label>
+        <input type="text" id="ap-target" placeholder="예: 흉근, 삼두 / pectorals, triceps" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div>
+        <label>인물 시점</label>
+        <select id="ap-view">
+          <option value="lateral">정측면 (대부분의 운동)</option>
+          <option value="posterior-lateral">측후면 (등 운동)</option>
+          <option value="anterior">정면 (어깨/가슴 일부)</option>
+        </select>
+      </div>
+      <div>
+        <label>출력 언어</label>
+        <select id="ap-lang">
+          <option value="en">English (AI 도구에 권장)</option>
+          <option value="kr">한국어</option>
+          <option value="both">둘 다</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <label>시작 자세 설명 *</label>
+      <textarea id="ap-start" placeholder="예: 엎드려 손을 어깨너비로 짚고 팔을 곧게 편 자세"></textarea>
+    </div>
+    <div style="margin-top:10px;">
+      <label>끝 자세 설명 *</label>
+      <textarea id="ap-end" placeholder="예: 팔꿈치를 굽혀 가슴이 바닥 가까이 내려간 자세"></textarea>
+    </div>
+
+    <div style="margin-top:14px;">
+      <label>생성된 프롬프트 (자동 갱신)</label>
+      <textarea id="ap-output" readonly style="min-height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="ghost"   id="ap-copy">📋 클립보드 복사</button>
+      <button class="primary" id="ap-close-bottom">닫기</button>
+    </div>
+  </div>
+</div>
 
 <!-- 운동 사전 상세 모달 -->
 <div class="modal-bg" id="dict-detail-modal">
@@ -1770,6 +1829,89 @@ function initBackupPanel() {
   updateDataStats();
 }
 
+// ============ AI 이미지 프롬프트 생성기 ============
+const AP_VIEW_LABEL = {
+  "lateral":            { kr: "정측면", en: "side view (lateral profile)" },
+  "posterior-lateral":  { kr: "측후면", en: "posterior-lateral view (back-side angle)" },
+  "anterior":           { kr: "정면",   en: "front view (anterior)" },
+};
+
+function buildAiPrompt(name, target, view, start, end, lang) {
+  const v = AP_VIEW_LABEL[view] || AP_VIEW_LABEL.lateral;
+  const kr =
+`[${name}] · 4:3 비율, 기능적 해부학 일러스트 스타일 (실사 사진 X — 전문 메디컬·스포츠 삽화 스타일).
+배경 흰색, 전체적으로 화이트 톤. 자극 부위(${target})를 붉은색으로 강조 표시.
+인물은 ${v.kr} 시점.
+2가지 동작 단계를 좌우로 나란히 한 이미지에 배치할 것 (split frame).
+
+1) 시작 자세: ${start}
+2) 끝 자세: ${end}
+
+두 프레임 모두 동일한 스타일·각도·조명·근육 강조 표현을 유지할 것.
+근섬유 방향, 관절 각도가 정확하게 보이도록 묘사.
+인물은 운동복(타이트한 보디수트), 머리는 단순화. 텍스트나 화살표는 추가하지 말 것.`;
+
+  const en =
+`[${name}] · 4:3 aspect ratio, functional anatomy illustration style (NOT a photograph — professional medical / sports illustration look).
+White background, overall white-tone palette. Highlight target muscles (${target}) in vivid red.
+Person shown in ${v.en}.
+Provide 2 motion phases side-by-side in a single split-frame image:
+
+1) Start position: ${start}
+2) End position: ${end}
+
+Both frames must use identical style, angle, lighting, and muscle highlight rendering.
+Show accurate muscle fiber direction and joint angles.
+Subject wears a tight bodysuit; simplify head. Do NOT add text labels or arrows.`;
+
+  if (lang === "kr") return kr;
+  if (lang === "en") return en;
+  return en + "\n\n--- 한국어 버전 ---\n\n" + kr;
+}
+
+function initAiPromptModal() {
+  const modal = document.getElementById("prompt-modal");
+  const ids = ["ap-name", "ap-target", "ap-view", "ap-start", "ap-end", "ap-lang"];
+  const update = () => {
+    const get = (id) => document.getElementById(id).value;
+    const name   = get("ap-name").trim()   || "[동작 이름]";
+    const target = get("ap-target").trim() || "[자극 부위]";
+    const view   = get("ap-view");
+    const start  = get("ap-start").trim()  || "[시작 자세 설명]";
+    const end    = get("ap-end").trim()    || "[끝 자세 설명]";
+    const lang   = get("ap-lang");
+    document.getElementById("ap-output").value = buildAiPrompt(name, target, view, start, end, lang);
+  };
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", update);
+    el.addEventListener("change", update);
+  });
+  document.getElementById("ai-prompt-btn").addEventListener("click", () => {
+    // 업로드 폼에 입력된 이름·설명이 있으면 자동으로 채움
+    const upName = document.getElementById("up-name").value.trim();
+    const upDesc = document.getElementById("up-desc").value.trim();
+    if (upName) document.getElementById("ap-name").value = upName;
+    if (upDesc && !document.getElementById("ap-start").value) {
+      document.getElementById("ap-start").value = upDesc;
+    }
+    modal.classList.add("open");
+    update();
+  });
+  const close = () => modal.classList.remove("open");
+  document.getElementById("prompt-close-x").addEventListener("click", close);
+  document.getElementById("ap-close-bottom").addEventListener("click", close);
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+  document.getElementById("ap-copy").addEventListener("click", () => {
+    const text = document.getElementById("ap-output").value;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+      () => alert("프롬프트를 클립보드에 복사했습니다.\nChatGPT / Midjourney / DALL-E 등에 붙여넣으세요."),
+      () => alert("복사 실패. 수동으로 선택해 복사해 주세요.")
+    );
+  });
+}
+
 // ============ Init ============
 function initPaletteSwitcher() {
   const sel = document.getElementById("palette-select");
@@ -1787,6 +1929,7 @@ async function init() {
   initPaletteSwitcher();
   initBackupPanel();
   initReminder();
+  initAiPromptModal();
   rtDate.value = currentRoutine.date;
   migrateRoutineItems();
   renderLibrary();
