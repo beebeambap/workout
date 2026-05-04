@@ -134,20 +134,42 @@
   .sheet-header h2 { font-size: 22px; margin: 0; }
   .sheet-header .date { color: var(--muted); font-size: 14px; }
   .sheet-memo { font-size: 13px; color: #4b5563; margin-bottom: 14px; white-space: pre-wrap; }
-  .sheet-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .sheet-table th, .sheet-table td { border: 1px solid var(--border); padding: 10px 8px; vertical-align: middle; }
-  .sheet-table thead th { background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; text-align: center; }
-  .sheet-table tbody td.col-info { vertical-align: top; text-align: left; padding-top: 12px; }
-  .sheet-table .col-num { width: 48px; text-align: center; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
-  .sheet-table .col-img { width: 200px; text-align: center; }
-  .sheet-table .col-img .img-box { width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .sheet-table .col-img img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
-  .sheet-table .col-info .name { font-weight: 700; font-size: 14px; }
-  .sheet-table .col-info .name-en { font-size: 11px; color: var(--muted); font-weight: 400; font-style: italic; margin-top: 2px; }
-  .sheet-table .col-info .desc { font-size: 12px; color: #4b5563; margin-top: 4px; white-space: pre-wrap; }
-  .sheet-table .col-sr { width: 96px; text-align: center; font-weight: 700; font-size: 14px; }
-  .sheet-table .col-sr small { display: block; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  /* 시트 grid 레이아웃 — 1단/2단 + compact(이미지 생략) 지원 */
+  .sheet-grid { display: grid; gap: 8px; }
+  .sheet-grid[data-cols="1"] { grid-template-columns: 1fr; }
+  .sheet-grid[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+  .sheet-item {
+    display: grid;
+    grid-template-columns: 38px 110px 1fr 78px;
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    align-items: center;
+    background: #fff;
+    page-break-inside: avoid;
+  }
+  .sheet-item.compact { grid-template-columns: 38px 1fr 78px; }
+  .sheet-item .si-num { font-weight: 800; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+  .sheet-item .si-img { width: 100%; height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .sheet-item .si-img img { max-width: 100%; max-height: 100%; display: block; }
+  .sheet-item .si-info .name { font-weight: 700; font-size: 13px; }
+  .sheet-item .si-info .name-en { font-size: 10px; color: var(--muted); font-style: italic; margin-top: 2px; }
+  .sheet-item .si-info .desc { font-size: 11px; color: #4b5563; margin-top: 4px; line-height: 1.4; }
+  .sheet-item .si-sr { font-weight: 700; font-size: 14px; text-align: center; }
+  .sheet-item .si-sr small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; margin-top: 2px; }
+  /* 2단에서는 폰트·이미지 살짝 축소 */
+  .sheet-grid[data-cols="2"] .sheet-item { grid-template-columns: 32px 80px 1fr 64px; padding: 6px 8px; gap: 8px; }
+  .sheet-grid[data-cols="2"] .sheet-item.compact { grid-template-columns: 32px 1fr 64px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-img { height: 72px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .name { font-size: 12px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .name-en { font-size: 10px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .desc { font-size: 10px; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-sr { font-size: 12px; }
+
   .sheet-footer { margin-top: 14px; text-align: right; font-size: 11px; color: var(--muted); }
+  #sheet-cols { width: auto; padding: 6px 10px; font-size: 12px; }
 
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .top-actions { display: flex; gap: 8px; }
@@ -348,6 +370,10 @@
       <div class="toolbar" style="justify-content: space-between;">
         <h2 style="margin:0;">출력 미리보기</h2>
         <div class="top-actions">
+          <select id="sheet-cols" aria-label="레이아웃">
+            <option value="1">1단 (긴 시트)</option>
+            <option value="2">2단 (가로 분할)</option>
+          </select>
           <button class="ghost" id="preview-close">닫기</button>
           <button class="primary" id="preview-export">JPG로 저장</button>
         </div>
@@ -1063,6 +1089,9 @@ function renderRoutineItems() {
           <button class="edit-btn" data-role="detail" title="${it.source === "seed" ? "운동 사전 상세" : "내 동작 상세"}">상세</button>
           <button class="edit-btn" data-role="edit" title="이름·설명 편집">편집</button>
           <button class="danger" data-role="rm">삭제</button>
+          <label style="font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px;">
+            <input type="checkbox" data-role="compact" ${it.compact ? "checked" : ""} style="width:auto;"> 시트 이미지 생략
+          </label>
         </div>
       </div>`;
   }).join("");
@@ -1079,6 +1108,10 @@ function renderRoutineItems() {
     };
     row.querySelector('input[data-role="sets"]').addEventListener("change", onChange("sets"));
     row.querySelector('input[data-role="reps"]').addEventListener("change", onChange("reps"));
+    const compactCb = row.querySelector('input[data-role="compact"]');
+    if (compactCb) compactCb.addEventListener("change", (e) => {
+      currentRoutine.items[idx].compact = e.target.checked;
+    });
     row.querySelector('button[data-role="rm"]').addEventListener("click", () => {
       currentRoutine.items.splice(idx, 1);
       renderRoutineItems();
@@ -1217,10 +1250,33 @@ function deleteRoutine(id) {
 // ============ 미리보기 / JPG 출력 ============
 const previewPanel = document.getElementById("preview-panel");
 const sheetPage = document.getElementById("sheet-page");
+const sheetColsSel = document.getElementById("sheet-cols");
 let previewRoutineId = null;
+let currentSheetCols = parseInt(localStorage.getItem("workout.sheetCols") || "1", 10);
+sheetColsSel.value = String(currentSheetCols);
+sheetColsSel.addEventListener("change", (e) => {
+  currentSheetCols = parseInt(e.target.value, 10) || 1;
+  localStorage.setItem("workout.sheetCols", String(currentSheetCols));
+  if (previewRoutineId) {
+    const r = routines.find((x) => x.id === previewRoutineId);
+    if (r) {
+      sheetPage.innerHTML = renderSheet(r);
+      attachSheetClickHandlers();
+    }
+  }
+});
 
 document.getElementById("preview-close").addEventListener("click", () => previewPanel.style.display = "none");
 document.getElementById("preview-export").addEventListener("click", exportJpg);
+
+function attachSheetClickHandlers() {
+  sheetPage.querySelectorAll('[data-source="seed"]').forEach((el) => {
+    el.addEventListener("click", () => {
+      const refId = el.dataset.refid;
+      if (refId) openDictionaryDetail(refId);
+    });
+  });
+}
 
 function openPreview(id) {
   const r = routines.find((x) => x.id === id);
@@ -1229,37 +1285,36 @@ function openPreview(id) {
   sheetPage.innerHTML = renderSheet(r);
   previewPanel.style.display = "block";
   previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  // 시드 행 클릭 → 운동 사전 상세 모달
-  sheetPage.querySelectorAll('tr[data-source="seed"]').forEach((tr) => {
-    tr.addEventListener("click", () => {
-      const refId = tr.dataset.refid;
-      if (refId) openDictionaryDetail(refId);
-    });
-  });
+  attachSheetClickHandlers();
 }
 
 function renderSheet(r) {
-  const rows = r.items.map((it, i) => {
+  const cols = currentSheetCols || 1;
+  const items = r.items.map((it, i) => {
     const ex = resolveExercise(it);
     const num = String(i + 1).padStart(2, "0");
+    const isCompact = !!it.compact;
     const img  = ex ? ex.image : "";
     const name = ex ? escapeHtml(ex.name) : "(삭제된 동작)";
     const nameEn = ex && ex.nameEn && ex.nameEn !== ex.name ? escapeHtml(ex.nameEn) : "";
     const desc = ex ? escapeHtml(ex.description || ex.meta || "") : "";
-    const trAttrs = it.source === "seed"
+    const itemAttrs = it.source === "seed"
       ? `data-source="seed" data-refid="${escapeHtml(String(it.refId || ""))}" style="cursor:pointer;" title="클릭하면 운동 사전 상세 보기"`
       : "";
+    const imgBlock = (!isCompact && img)
+      ? `<div class="si-img"><img src="${img}" alt="" crossorigin="anonymous" /></div>`
+      : "";
     return `
-      <tr ${trAttrs}>
-        <td class="col-num">${num}</td>
-        <td class="col-img">${img ? `<div class="img-box"><img src="${img}" alt="" crossorigin="anonymous" /></div>` : ""}</td>
-        <td class="col-info">
+      <div class="sheet-item ${isCompact ? "compact" : ""}" ${itemAttrs}>
+        <div class="si-num">${num}</div>
+        ${imgBlock}
+        <div class="si-info">
           <div class="name">${name}</div>
           ${nameEn ? `<div class="name-en">${nameEn}</div>` : ""}
           ${desc ? `<div class="desc">${desc}</div>` : ""}
-        </td>
-        <td class="col-sr">${it.reps} × ${it.sets}<small>회 × 세트</small></td>
-      </tr>`;
+        </div>
+        <div class="si-sr">${it.reps} × ${it.sets}<small>회 × 세트</small></div>
+      </div>`;
   }).join("");
   return `
     <div class="sheet-header">
@@ -1267,24 +1322,8 @@ function renderSheet(r) {
       <div class="date">${r.date}</div>
     </div>
     ${r.memo ? `<div class="sheet-memo">${escapeHtml(r.memo)}</div>` : ""}
-    <table class="sheet-table">
-      <colgroup>
-        <col style="width:48px;" />
-        <col style="width:200px;" />
-        <col />
-        <col style="width:96px;" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th class="col-num">#</th>
-          <th class="col-img">이미지</th>
-          <th class="col-info">동작</th>
-          <th class="col-sr">회 × 세트</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="sheet-footer">총 ${r.items.length}개 항목 · 운동 세션 기록기</div>
+    <div class="sheet-grid" data-cols="${cols}">${items}</div>
+    <div class="sheet-footer">총 ${r.items.length}개 항목 · ${cols}단 · 운동 세션 기록기</div>
   `;
 }
 
