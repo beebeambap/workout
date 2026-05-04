@@ -141,32 +141,36 @@
   .sheet-grid[data-cols="2"] { grid-template-columns: 1fr 1fr; }
   .sheet-item {
     display: grid;
-    grid-template-columns: 38px 110px 1fr 78px;
+    grid-template-columns: 32px 110px 1fr 70px;
     gap: 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px 10px;
-    align-items: center;
+    align-items: start;          /* 1·2단 모두 좌상단 정렬 */
     background: #fff;
     page-break-inside: avoid;
   }
-  .sheet-item.compact { grid-template-columns: 38px 1fr 78px; }
-  .sheet-item .si-num { font-weight: 800; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+  .sheet-item.compact { grid-template-columns: 32px 1fr 70px; }
+  .sheet-item .si-num { font-weight: 800; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; font-size: 13px; padding-top: 2px; }
   .sheet-item .si-img { width: 100%; height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .sheet-item .si-img img { max-width: 100%; max-height: 100%; display: block; }
-  .sheet-item .si-info .name { font-weight: 700; font-size: 13px; }
-  .sheet-item .si-info .name-en { font-size: 10px; color: var(--muted); font-style: italic; margin-top: 2px; }
+  .sheet-item .si-info { min-width: 0; text-align: left; }
+  .sheet-item .si-info .name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet-item .si-info .name-en { font-size: 10px; color: var(--muted); font-style: italic; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sheet-item .si-info .desc { font-size: 11px; color: #4b5563; margin-top: 4px; line-height: 1.4; }
-  .sheet-item .si-sr { font-weight: 700; font-size: 14px; text-align: center; }
-  .sheet-item .si-sr small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; margin-top: 2px; }
-  /* 2단에서는 폰트·이미지 살짝 축소 */
-  .sheet-grid[data-cols="2"] .sheet-item { grid-template-columns: 32px 80px 1fr 64px; padding: 6px 8px; gap: 8px; }
-  .sheet-grid[data-cols="2"] .sheet-item.compact { grid-template-columns: 32px 1fr 64px; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-img { height: 72px; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-info .name { font-size: 12px; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-info .name-en { font-size: 10px; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-info .desc { font-size: 10px; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-sr { font-size: 12px; }
+  .sheet-item .si-sr { font-weight: 700; font-size: 12px; text-align: center; padding-top: 2px; }
+  .sheet-item .si-sr small { display: block; font-weight: 400; color: var(--muted); font-size: 9px; margin-top: 2px; }
+
+  /* 2단: 폰트·여백 더 축소, 설명은 잘림 없이 모두 노출 */
+  .sheet-grid[data-cols="2"] .sheet-item { grid-template-columns: 24px 68px 1fr 50px; padding: 6px 8px; gap: 6px; }
+  .sheet-grid[data-cols="2"] .sheet-item.compact { grid-template-columns: 24px 1fr 50px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-num { font-size: 10px; padding-top: 2px; letter-spacing: 0; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-img { height: 60px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .name { font-size: 11px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .name-en { font-size: 9px; margin-top: 1px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-info .desc { font-size: 9px; line-height: 1.3; margin-top: 3px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-sr { font-size: 10px; padding-top: 2px; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-sr small { font-size: 8px; margin-top: 1px; }
 
   .sheet-footer { margin-top: 14px; text-align: right; font-size: 11px; color: var(--muted); }
   #sheet-cols { width: auto; padding: 6px 10px; font-size: 12px; }
@@ -266,6 +270,23 @@
             <label>이미지 파일 *</label>
             <input type="file" id="up-file" accept="image/*" required />
           </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>카테고리 (선택)</label>
+            <select id="up-category">
+              <option value="">선택 안 함</option>
+              <option value="가슴">가슴</option>
+              <option value="등">등</option>
+              <option value="어깨">어깨</option>
+              <option value="팔">팔</option>
+              <option value="복부">복부</option>
+              <option value="다리">다리</option>
+              <option value="유산소">유산소</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div></div>
         </div>
         <div style="margin-top:10px;">
           <label>동작 설명 (선택)</label>
@@ -467,6 +488,15 @@
         </select>
       </div>
       <div>
+        <label>성별</label>
+        <select id="ap-gender">
+          <option value="male">남자 (검은 쇼츠 · 짧은 머리)</option>
+          <option value="female">여자 (검은 스포츠 브라탑+쇼츠 · 포니테일)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div>
         <label>출력 언어</label>
         <select id="ap-lang">
           <option value="en">English (AI 도구에 권장)</option>
@@ -474,6 +504,7 @@
           <option value="both">둘 다</option>
         </select>
       </div>
+      <div></div>
     </div>
     <div style="margin-top:10px;">
       <label>시작 자세 설명 *</label>
@@ -518,6 +549,20 @@
     <img class="preview" id="ed-preview" alt="" />
     <label>이름</label>
     <input type="text" id="ed-name" />
+    <div id="ed-category-wrap" style="margin-top:8px;">
+      <label>카테고리</label>
+      <select id="ed-category">
+        <option value="">선택 안 함</option>
+        <option value="가슴">가슴</option>
+        <option value="등">등</option>
+        <option value="어깨">어깨</option>
+        <option value="팔">팔</option>
+        <option value="복부">복부</option>
+        <option value="다리">다리</option>
+        <option value="유산소">유산소</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
     <div style="height:8px;"></div>
     <label>설명</label>
     <textarea id="ed-desc"></textarea>
@@ -863,6 +908,7 @@ upForm.addEventListener("submit", async (e) => {
     const ex = {
       id: uid(),
       name: upName.value.trim(),
+      category: (document.getElementById("up-category").value || "").trim(),
       description: upDesc.value.trim(),
       imageDataUrl: dataUrl,
       createdAt: Date.now(),
@@ -893,7 +939,7 @@ function renderLibrary() {
     <div class="card" data-id="${e.id}">
       <div class="thumb"><img src="${e.imageDataUrl}" alt="${escapeHtml(e.name)}" /></div>
       <div class="meta">
-        <div class="name">${escapeHtml(e.name)}</div>
+        <div class="name">${escapeHtml(e.name)}${e.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(e.category)}</span>` : ""}</div>
         <div class="desc">${escapeHtml(e.description || "설명 없음")}</div>
       </div>
     </div>`).join("");
@@ -918,11 +964,13 @@ edModal.addEventListener("click", (e) => { if (e.target === edModal) edModal.cla
 document.getElementById("ed-save").addEventListener("click", () => {
   const newName = edName.value.trim();
   const newDesc = edDesc.value.trim();
+  const newCategory = (document.getElementById("ed-category").value || "").trim();
   if (editingItemSource === "local") {
     const ex = exercises.find((e) => e.id === editingItemId);
     if (!ex) return;
     ex.name = newName || ex.name;
     ex.description = newDesc;
+    ex.category = newCategory;
     ex.updatedAt = Date.now();
     save(KEYS.exercises, exercises);
   } else if (editingItemSource === "seed") {
@@ -986,14 +1034,18 @@ function refreshAfterEdit() {
 function openEdit(source, refId) {
   editingItemSource = source;
   editingItemId = refId;
+  const edCategoryWrap = document.getElementById("ed-category-wrap");
+  const edCategory = document.getElementById("ed-category");
   if (source === "local") {
     const ex = exercises.find((e) => e.id === refId);
     if (!ex) return;
     edTitle.textContent = "내 동작 편집";
-    edHint.textContent = "라이브러리에 업로드한 동작입니다. 이름/설명을 수정하거나 삭제할 수 있습니다.";
+    edHint.textContent = "라이브러리에 업로드한 동작입니다. 이름·카테고리·설명을 수정하거나 삭제할 수 있습니다.";
     edPreview.src = ex.imageDataUrl;
     edName.value = ex.name;
     edDesc.value = ex.description || "";
+    edCategory.value = ex.category || "";
+    edCategoryWrap.style.display = "";
     edDelete.style.display = "";
     edReset.style.display  = "none";
   } else if (source === "seed") {
@@ -1001,10 +1053,11 @@ function openEdit(source, refId) {
     if (!s) return;
     const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
     edTitle.textContent = "공개 동작 편집 (한글만)";
-    edHint.innerHTML = `공개 데이터셋의 동작입니다. 이미지는 변경 불가, 한글 이름/요약만 내 기기에 저장됩니다.<br>원문(영어): <em>${escapeHtml(s.name)}</em>`;
+    edHint.innerHTML = `공개 데이터셋의 동작입니다. 이미지·카테고리는 변경 불가, 한글 이름/요약만 내 기기에 저장됩니다.<br>원문(영어): <em>${escapeHtml(s.name)}</em>`;
     edPreview.src = SEED_BASE_URL + s.image;
     edName.value = ko.name_ko || s.name;
     edDesc.value = ko.summary_ko || "";
+    edCategoryWrap.style.display = "none"; // 시드는 카테고리 고정
     edDelete.style.display = "none";
     edReset.style.display  = s._ko_user ? "" : "none";
   }
@@ -1070,21 +1123,24 @@ function renderSearchResults() {
   const fTarget = rtFilterTarget.value;
   const filterActive = !!(fCat || fEq || fTarget);
 
-  // local: 텍스트 검색만 적용 (필터는 시드 메타용이라 로컬엔 거의 의미 없음)
-  const localList = filterActive
+  // local: 텍스트 + 카테고리 필터 적용 (장비/타깃 필터는 시드 전용이므로 로컬 제외)
+  const localList = (fEq || fTarget)
     ? []
     : exercises
         .filter((e) => {
-          if (!q) return true;
-          const hay = [e.name, e.description].filter(Boolean).join(" ").toLowerCase();
-          return hay.includes(q);
+          if (q) {
+            const hay = [e.name, e.description, e.category].filter(Boolean).join(" ").toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          if (fCat && (e.category || "기타") !== fCat) return false;
+          return true;
         })
         .slice(0, 20)
         .map((e) => ({
           source: "local", refId: e.id,
           name: e.name, nameEn: null,
           image: e.imageDataUrl,
-          desc: e.description || "",
+          desc: e.category ? `${e.category} · ${e.description || ""}`.trim() : (e.description || ""),
         }));
 
   // seed: 텍스트(영문 name + 한글 name_ko/summary_ko) + 3개 필터
@@ -1835,34 +1891,47 @@ const AP_VIEW_LABEL = {
   "posterior-lateral":  { kr: "측후면", en: "posterior-lateral view (back-side angle)" },
   "anterior":           { kr: "정면",   en: "front view (anterior)" },
 };
+const AP_GENDER = {
+  male: {
+    kr: "남성 — 검은색 운동 쇼츠만 착용(상의 없음), 짧은 헤어컷",
+    en: "Male athlete — wearing only solid black athletic shorts (no shirt), short cropped haircut",
+  },
+  female: {
+    kr: "여성 — 검은색 스포츠 브라탑과 검은색 운동 쇼츠 착용, 머리는 단정한 포니테일",
+    en: "Female athlete — wearing a solid black sports bra top and solid black athletic shorts, hair styled in a neat ponytail",
+  },
+};
 
-function buildAiPrompt(name, target, view, start, end, lang) {
+function buildAiPrompt(name, target, view, gender, start, end, lang) {
   const v = AP_VIEW_LABEL[view] || AP_VIEW_LABEL.lateral;
+  const g = AP_GENDER[gender] || AP_GENDER.male;
   const kr =
 `[${name}] · 4:3 비율, 기능적 해부학 일러스트 스타일 (실사 사진 X — 전문 메디컬·스포츠 삽화 스타일).
 배경 흰색, 전체적으로 화이트 톤. 자극 부위(${target})를 붉은색으로 강조 표시.
-인물은 ${v.kr} 시점.
+인물 자세: ${v.kr} 시점.
+인물 외형: ${g.kr}.
 2가지 동작 단계를 좌우로 나란히 한 이미지에 배치할 것 (split frame).
 
 1) 시작 자세: ${start}
 2) 끝 자세: ${end}
 
 두 프레임 모두 동일한 스타일·각도·조명·근육 강조 표현을 유지할 것.
-근섬유 방향, 관절 각도가 정확하게 보이도록 묘사.
-인물은 운동복(타이트한 보디수트), 머리는 단순화. 텍스트나 화살표는 추가하지 말 것.`;
+근섬유 방향과 관절 각도가 정확하게 보이도록 묘사.
+이미지 안에 텍스트·숫자·라벨·화살표·기호·워터마크·로고를 절대 포함하지 말 것 (NO text, NO labels, NO arrows, NO numbers, NO symbols).`;
 
   const en =
 `[${name}] · 4:3 aspect ratio, functional anatomy illustration style (NOT a photograph — professional medical / sports illustration look).
 White background, overall white-tone palette. Highlight target muscles (${target}) in vivid red.
-Person shown in ${v.en}.
+Camera angle: ${v.en}.
+Subject appearance: ${g.en}.
 Provide 2 motion phases side-by-side in a single split-frame image:
 
 1) Start position: ${start}
 2) End position: ${end}
 
-Both frames must use identical style, angle, lighting, and muscle highlight rendering.
+Both frames must use identical style, angle, lighting, and muscle-highlight rendering.
 Show accurate muscle fiber direction and joint angles.
-Subject wears a tight bodysuit; simplify head. Do NOT add text labels or arrows.`;
+ABSOLUTELY NO text, NO numbers, NO labels, NO arrows, NO symbols, NO watermarks, NO logos anywhere in the image.`;
 
   if (lang === "kr") return kr;
   if (lang === "en") return en;
@@ -1871,16 +1940,17 @@ Subject wears a tight bodysuit; simplify head. Do NOT add text labels or arrows.
 
 function initAiPromptModal() {
   const modal = document.getElementById("prompt-modal");
-  const ids = ["ap-name", "ap-target", "ap-view", "ap-start", "ap-end", "ap-lang"];
+  const ids = ["ap-name", "ap-target", "ap-view", "ap-gender", "ap-start", "ap-end", "ap-lang"];
   const update = () => {
     const get = (id) => document.getElementById(id).value;
     const name   = get("ap-name").trim()   || "[동작 이름]";
     const target = get("ap-target").trim() || "[자극 부위]";
     const view   = get("ap-view");
+    const gender = get("ap-gender");
     const start  = get("ap-start").trim()  || "[시작 자세 설명]";
     const end    = get("ap-end").trim()    || "[끝 자세 설명]";
     const lang   = get("ap-lang");
-    document.getElementById("ap-output").value = buildAiPrompt(name, target, view, start, end, lang);
+    document.getElementById("ap-output").value = buildAiPrompt(name, target, view, gender, start, end, lang);
   };
   ids.forEach((id) => {
     const el = document.getElementById(id);
