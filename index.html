@@ -66,6 +66,8 @@
   }
   .search-results .edit-btn:hover,
   .item .edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .item .edit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .item .edit-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
   /* 루틴 항목 — 1행: 이미지+이름/설명, 2행: 컨트롤(회·세트·버튼)
      (모바일에서 한 줄에 모두 들어가지 않아 깨지던 문제 해결) */
   .item {
@@ -151,7 +153,15 @@
     page-break-inside: avoid;
   }
   .sheet-item.compact { grid-template-columns: 32px 1fr 70px; }
-  .sheet-item .si-num { font-weight: 800; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; font-size: 13px; padding-top: 2px; }
+  .sheet-item .si-num {
+    font-weight: 800; color: var(--accent); text-align: center;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.5px; font-size: 13px;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    align-self: stretch;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 32px;
+  }
   .sheet-item .si-img { width: 100%; height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .sheet-item .si-img img { max-width: 100%; max-height: 100%; display: block; }
   .sheet-item .si-info { min-width: 0; text-align: left; }
@@ -164,7 +174,7 @@
   /* 2단: 폰트·여백 더 축소, 설명은 잘림 없이 모두 노출 */
   .sheet-grid[data-cols="2"] .sheet-item { grid-template-columns: 24px 68px 1fr 50px; padding: 6px 8px; gap: 6px; }
   .sheet-grid[data-cols="2"] .sheet-item.compact { grid-template-columns: 24px 1fr 50px; }
-  .sheet-grid[data-cols="2"] .sheet-item .si-num { font-size: 10px; padding-top: 2px; letter-spacing: 0; }
+  .sheet-grid[data-cols="2"] .sheet-item .si-num { font-size: 10px; min-height: 24px; letter-spacing: 0; }
   .sheet-grid[data-cols="2"] .sheet-item .si-img { height: 60px; }
   .sheet-grid[data-cols="2"] .sheet-item .si-info .name { font-size: 11px; }
   .sheet-grid[data-cols="2"] .sheet-item .si-info .name-en { font-size: 9px; margin-top: 1px; }
@@ -286,7 +296,18 @@
               <option value="기타">기타</option>
             </select>
           </div>
-          <div></div>
+          <div>
+            <label>장비 (선택)</label>
+            <select id="up-equipment">
+              <option value="">선택 안 함</option>
+              <option value="맨몸">맨몸</option>
+              <option value="바벨">바벨</option>
+              <option value="덤벨">덤벨</option>
+              <option value="머신·케이블">머신·케이블</option>
+              <option value="소도구">소도구</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
         </div>
         <div style="margin-top:10px;">
           <label>동작 설명 (선택)</label>
@@ -446,10 +467,9 @@
         <h2 style="margin:0;">운동 사전 <span class="badge" id="dict-count">0</span></h2>
         <input type="search" id="dict-search" placeholder="이름/근육/장비 검색 (한/영)" style="max-width: 320px;" />
       </div>
-      <div class="search-filters" style="margin-top: 8px;">
+      <div class="search-filters" style="margin-top: 8px; grid-template-columns: 1fr 1fr;">
         <select id="dict-filter-cat"><option value="">전체 카테고리</option></select>
         <select id="dict-filter-eq"><option value="">전체 장비</option></select>
-        <select id="dict-filter-target"><option value="">전체 타깃 근육</option></select>
       </div>
       <p class="hint">카드를 클릭하면 GIF · 영문 원문 수행 방법 등 상세 정보를 볼 수 있습니다.</p>
       <div id="dict-grid" class="grid" style="margin-top:12px;"></div>
@@ -550,18 +570,34 @@
     <label>이름</label>
     <input type="text" id="ed-name" />
     <div id="ed-category-wrap" style="margin-top:8px;">
-      <label>카테고리</label>
-      <select id="ed-category">
-        <option value="">선택 안 함</option>
-        <option value="가슴">가슴</option>
-        <option value="등">등</option>
-        <option value="어깨">어깨</option>
-        <option value="팔">팔</option>
-        <option value="복부">복부</option>
-        <option value="다리">다리</option>
-        <option value="유산소">유산소</option>
-        <option value="기타">기타</option>
-      </select>
+      <div class="row">
+        <div>
+          <label>카테고리</label>
+          <select id="ed-category">
+            <option value="">선택 안 함</option>
+            <option value="가슴">가슴</option>
+            <option value="등">등</option>
+            <option value="어깨">어깨</option>
+            <option value="팔">팔</option>
+            <option value="복부">복부</option>
+            <option value="다리">다리</option>
+            <option value="유산소">유산소</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div>
+          <label>장비</label>
+          <select id="ed-equipment">
+            <option value="">선택 안 함</option>
+            <option value="맨몸">맨몸</option>
+            <option value="바벨">바벨</option>
+            <option value="덤벨">덤벨</option>
+            <option value="머신·케이블">머신·케이블</option>
+            <option value="소도구">소도구</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div style="height:8px;"></div>
     <label>설명</label>
@@ -908,7 +944,8 @@ upForm.addEventListener("submit", async (e) => {
     const ex = {
       id: uid(),
       name: upName.value.trim(),
-      category: (document.getElementById("up-category").value || "").trim(),
+      category:  (document.getElementById("up-category").value  || "").trim(),
+      equipment: (document.getElementById("up-equipment").value || "").trim(),
       description: upDesc.value.trim(),
       imageDataUrl: dataUrl,
       createdAt: Date.now(),
@@ -964,13 +1001,15 @@ edModal.addEventListener("click", (e) => { if (e.target === edModal) edModal.cla
 document.getElementById("ed-save").addEventListener("click", () => {
   const newName = edName.value.trim();
   const newDesc = edDesc.value.trim();
-  const newCategory = (document.getElementById("ed-category").value || "").trim();
+  const newCategory  = (document.getElementById("ed-category").value  || "").trim();
+  const newEquipment = (document.getElementById("ed-equipment").value || "").trim();
   if (editingItemSource === "local") {
     const ex = exercises.find((e) => e.id === editingItemId);
     if (!ex) return;
     ex.name = newName || ex.name;
     ex.description = newDesc;
-    ex.category = newCategory;
+    ex.category  = newCategory;
+    ex.equipment = newEquipment;
     ex.updatedAt = Date.now();
     save(KEYS.exercises, exercises);
   } else if (editingItemSource === "seed") {
@@ -1040,11 +1079,12 @@ function openEdit(source, refId) {
     const ex = exercises.find((e) => e.id === refId);
     if (!ex) return;
     edTitle.textContent = "내 동작 편집";
-    edHint.textContent = "라이브러리에 업로드한 동작입니다. 이름·카테고리·설명을 수정하거나 삭제할 수 있습니다.";
+    edHint.textContent = "라이브러리에 업로드한 동작입니다. 이름·카테고리·장비·설명을 수정하거나 삭제할 수 있습니다.";
     edPreview.src = ex.imageDataUrl;
     edName.value = ex.name;
     edDesc.value = ex.description || "";
     edCategory.value = ex.category || "";
+    document.getElementById("ed-equipment").value = ex.equipment || "";
     edCategoryWrap.style.display = "";
     edDelete.style.display = "";
     edReset.style.display  = "none";
@@ -1110,10 +1150,9 @@ function populateFilters() {
   fill(rtFilterCat,    cats,    "전체 카테고리");
   fill(rtFilterEq,     eqs,     "전체 장비");
   fill(rtFilterTarget, targets, "전체 타깃 근육");
-  // 운동 사전 탭의 동일한 dropdown 도 채움
-  fill(document.getElementById("dict-filter-cat"),    cats,    "전체 카테고리");
-  fill(document.getElementById("dict-filter-eq"),     eqs,     "전체 장비");
-  fill(document.getElementById("dict-filter-target"), targets, "전체 타깃 근육");
+  // 운동 사전 탭의 동일한 dropdown 도 채움 (사전엔 타깃 dropdown 없음)
+  fill(document.getElementById("dict-filter-cat"), cats, "전체 카테고리");
+  fill(document.getElementById("dict-filter-eq"),  eqs,  "전체 장비");
 }
 
 function renderSearchResults() {
@@ -1123,16 +1162,17 @@ function renderSearchResults() {
   const fTarget = rtFilterTarget.value;
   const filterActive = !!(fCat || fEq || fTarget);
 
-  // local: 텍스트 + 카테고리 필터 적용 (장비/타깃 필터는 시드 전용이므로 로컬 제외)
-  const localList = (fEq || fTarget)
+  // local: 텍스트 + 카테고리 + 장비 필터 (타깃은 시드 전용이라 활성 시 로컬 제외)
+  const localList = fTarget
     ? []
     : exercises
         .filter((e) => {
           if (q) {
-            const hay = [e.name, e.description, e.category].filter(Boolean).join(" ").toLowerCase();
+            const hay = [e.name, e.description, e.category, e.equipment].filter(Boolean).join(" ").toLowerCase();
             if (!hay.includes(q)) return false;
           }
-          if (fCat && (e.category || "기타") !== fCat) return false;
+          if (fCat && (e.category  || "기타") !== fCat) return false;
+          if (fEq  && (e.equipment || "기타") !== fEq)  return false;
           return true;
         })
         .slice(0, 20)
@@ -1140,7 +1180,7 @@ function renderSearchResults() {
           source: "local", refId: e.id,
           name: e.name, nameEn: null,
           image: e.imageDataUrl,
-          desc: e.category ? `${e.category} · ${e.description || ""}`.trim() : (e.description || ""),
+          desc: [e.category, e.equipment, e.description].filter(Boolean).join(" · "),
         }));
 
   // seed: 텍스트(영문 name + 한글 name_ko/summary_ko) + 3개 필터
@@ -1236,9 +1276,11 @@ function renderRoutineItems() {
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
           <label style="margin:0;">세트</label>
           <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
+          <button class="edit-btn" data-role="up"     title="위로 이동" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button class="edit-btn" data-role="down"   title="아래로 이동" ${idx === currentRoutine.items.length - 1 ? "disabled" : ""}>↓</button>
           <button class="edit-btn" data-role="detail" title="${it.source === "seed" ? "운동 사전 상세" : "내 동작 상세"}">상세</button>
-          <button class="edit-btn" data-role="edit" title="이름·설명 편집">편집</button>
-          <button class="danger" data-role="rm">삭제</button>
+          <button class="edit-btn" data-role="edit"   title="이름·설명 편집">편집</button>
+          <button class="danger"   data-role="rm">삭제</button>
           <label style="font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:4px;">
             <input type="checkbox" data-role="compact" ${it.compact ? "checked" : ""} style="width:auto;"> 시트 이미지 생략
           </label>
@@ -1265,6 +1307,20 @@ function renderRoutineItems() {
     row.querySelector('button[data-role="rm"]').addEventListener("click", () => {
       currentRoutine.items.splice(idx, 1);
       renderRoutineItems();
+    });
+    row.querySelector('button[data-role="up"]').addEventListener("click", () => {
+      if (idx > 0) {
+        const it2 = currentRoutine.items.splice(idx, 1)[0];
+        currentRoutine.items.splice(idx - 1, 0, it2);
+        renderRoutineItems();
+      }
+    });
+    row.querySelector('button[data-role="down"]').addEventListener("click", () => {
+      if (idx < currentRoutine.items.length - 1) {
+        const it2 = currentRoutine.items.splice(idx, 1)[0];
+        currentRoutine.items.splice(idx + 1, 0, it2);
+        renderRoutineItems();
+      }
     });
     row.querySelector('button[data-role="edit"]').addEventListener("click", () => {
       const it2 = currentRoutine.items[idx];
@@ -1519,14 +1575,14 @@ const dictMore    = document.getElementById("dict-more");
 const dictSearch  = document.getElementById("dict-search");
 const dictFilterCat    = document.getElementById("dict-filter-cat");
 const dictFilterEq     = document.getElementById("dict-filter-eq");
-const dictFilterTarget = document.getElementById("dict-filter-target");
+// 타깃 근육 필터는 카테고리와 중복이라 사전 탭에서 제거됨
 const dictDetailModal = document.getElementById("dict-detail-modal");
 const dictDetailBody  = document.getElementById("dict-detail-body");
 const dictDetailTitle = document.getElementById("dict-detail-title");
 let dictDisplayLimit = 60;
 let dictCurrentDetailId = null;
 
-[dictSearch, dictFilterCat, dictFilterEq, dictFilterTarget].forEach((el) =>
+[dictSearch, dictFilterCat, dictFilterEq].forEach((el) =>
   el.addEventListener("input", () => { dictDisplayLimit = 60; renderDictionary(); }));
 document.getElementById("dict-detail-close").addEventListener("click", closeDictionaryDetail);
 dictDetailModal.addEventListener("click", (e) => { if (e.target === dictDetailModal) closeDictionaryDetail(); });
@@ -1551,7 +1607,6 @@ function filteredSeed() {
   const q   = (dictSearch.value || "").toLowerCase().trim();
   const fCat    = dictFilterCat.value;
   const fEq     = dictFilterEq.value;
-  const fTarget = dictFilterTarget.value;
   return seedExercises.filter((s) => {
     if (q) {
       const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
@@ -1559,9 +1614,8 @@ function filteredSeed() {
         .filter(Boolean).join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (fCat    && mapCategory(s.category)    !== fCat)    return false;
-    if (fEq     && mapEquipment(s.equipment)  !== fEq)     return false;
-    if (fTarget && mapTarget(s.target)        !== fTarget) return false;
+    if (fCat && mapCategory(s.category)   !== fCat) return false;
+    if (fEq  && mapEquipment(s.equipment) !== fEq)  return false;
     return true;
   });
 }
@@ -1910,28 +1964,31 @@ function buildAiPrompt(name, target, view, gender, start, end, lang) {
 배경 흰색, 전체적으로 화이트 톤. 자극 부위(${target})를 붉은색으로 강조 표시.
 인물 자세: ${v.kr} 시점.
 인물 외형: ${g.kr}.
-2가지 동작 단계를 좌우로 나란히 한 이미지에 배치할 것 (split frame).
+연속된 끊김 없는 흰 배경 위에 두 인물을 좌우로 나란히 배치할 것 (배경 분할선·테두리 X).
 
 1) 시작 자세: ${start}
 2) 끝 자세: ${end}
 
+두 인물은 동일한 해부학적 비율을 유지할 것 (키·체형·근육량·머리 크기 일치).
 두 프레임 모두 동일한 스타일·각도·조명·근육 강조 표현을 유지할 것.
 근섬유 방향과 관절 각도가 정확하게 보이도록 묘사.
-이미지 안에 텍스트·숫자·라벨·화살표·기호·워터마크·로고를 절대 포함하지 말 것 (NO text, NO labels, NO arrows, NO numbers, NO symbols).`;
+이미지 안에 텍스트·숫자·라벨·화살표·기호·워터마크·로고·구분선·테두리·프레임 박스 절대 포함 금지
+(NO text, NO labels, NO arrows, NO numbers, NO symbols, NO divider lines, NO borders, NO frame boxes).`;
 
   const en =
 `[${name}] · 4:3 aspect ratio, functional anatomy illustration style (NOT a photograph — professional medical / sports illustration look).
 White background, overall white-tone palette. Highlight target muscles (${target}) in vivid red.
 Camera angle: ${v.en}.
 Subject appearance: ${g.en}.
-Provide 2 motion phases side-by-side in a single split-frame image:
+Show 2 figures side-by-side on a continuous, seamless white background (no split frame, no divider line, no border between them).
 
 1) Start position: ${start}
 2) End position: ${end}
 
-Both frames must use identical style, angle, lighting, and muscle-highlight rendering.
+Maintain identical anatomical proportions between the two figures (same height, body shape, muscle volume, head size).
+Both figures must use identical style, camera angle, lighting, and muscle-highlight rendering.
 Show accurate muscle fiber direction and joint angles.
-ABSOLUTELY NO text, NO numbers, NO labels, NO arrows, NO symbols, NO watermarks, NO logos anywhere in the image.`;
+ABSOLUTELY NO text, NO numbers, NO labels, NO arrows, NO symbols, NO watermarks, NO logos, NO divider lines, NO borders, NO frame boxes anywhere in the image.`;
 
   if (lang === "kr") return kr;
   if (lang === "en") return en;
