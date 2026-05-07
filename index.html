@@ -242,6 +242,51 @@
   .src-badge.local { background: var(--accent-soft); color: var(--accent); }
   .seed-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
   .seed-status.err { color: var(--danger); }
+
+  /* 내 라이브러리 — 운동 사전과 동일한 3열 그리드 */
+  #lib-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  @media (max-width: 720px) {
+    #lib-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    #lib-grid .card .meta { padding: 6px; }
+    #lib-grid .card .name { font-size: 12px; }
+    #lib-grid .card .desc { font-size: 10px; }
+  }
+
+  /* 기록 내역 서브탭 */
+  .subtab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+  .subtab-btn { background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 9px 16px; margin-bottom: -2px; cursor: pointer; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .subtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .subtab-btn:hover:not(.active) { color: var(--text); }
+
+  /* 캘린더 */
+  .calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .calendar-nav button { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 20px; line-height: 1; color: var(--text); }
+  .calendar-nav button:hover { border-color: var(--accent); color: var(--accent); }
+  .cal-month-label { font-size: 17px; font-weight: 700; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-header-cell { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; padding: 6px 2px; }
+  .cal-day { border: 1px solid var(--border); border-radius: 8px; padding: 6px 5px; min-height: 64px; background: #fff; }
+  .cal-day.has-workout { cursor: pointer; }
+  .cal-day.has-workout:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .cal-day.today { border-color: var(--accent); }
+  .cal-day.other-month { background: var(--ph); opacity: 0.35; pointer-events: none; }
+  .cal-day-num { font-size: 12px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .cal-day.today .cal-day-num { color: var(--accent); }
+  .cal-dots { display: flex; flex-wrap: wrap; gap: 3px; }
+  .cal-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  @media (max-width: 640px) {
+    .cal-day { min-height: 44px; padding: 4px 3px; }
+    .cal-day-num { font-size: 10px; margin-bottom: 2px; }
+    .cal-dot { width: 6px; height: 6px; }
+    .cal-header-cell { font-size: 10px; padding: 4px 1px; }
+  }
+
+  /* 월간 통계 */
+  .monthly-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 16px; }
+  .stat-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 10px; text-align: center; }
+  .stat-card .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .stat-card .stat-num.stat-num-sm { font-size: 15px; }
+  .stat-card .stat-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -277,7 +322,7 @@
             <input type="text" id="up-name" required placeholder="예: 푸쉬업" />
           </div>
           <div>
-            <label>이미지 파일 *</label>
+            <label>이미지 / GIF *</label>
             <input type="file" id="up-file" accept="image/*" required />
           </div>
         </div>
@@ -316,7 +361,7 @@
         <div class="toolbar" style="margin-top:10px;">
           <button type="submit" class="primary">업로드</button>
           <button type="button" class="ghost" id="ai-prompt-btn">🎨 AI 이미지 프롬프트 생성</button>
-          <span class="hint">이미지는 자동으로 800px로 리사이즈되어 저장됩니다.</span>
+          <span class="hint">JPG·PNG는 800px로 리사이즈 저장, GIF는 애니메이션 그대로 저장됩니다.</span>
         </div>
       </form>
     </div>
@@ -420,26 +465,46 @@
   <!-- ========== 기록 내역 ========== -->
   <section class="tab" id="tab-history">
     <div class="panel">
-      <div class="toolbar" style="justify-content: space-between;">
-        <h2 style="margin:0;">저장된 루틴 <span class="badge" id="hist-count">0</span></h2>
-        <input type="search" id="hist-search" placeholder="제목/날짜 검색" style="max-width: 280px;" />
+      <div class="subtab-bar">
+        <button class="subtab-btn active" data-subtab="share">📋 루틴 공유용</button>
+        <button class="subtab-btn" data-subtab="log">📅 내 운동 기록</button>
       </div>
-      <div style="margin-top:8px; max-width: 280px;">
-        <select id="hist-filter-cat" style="font-size: 12px; padding: 6px 10px;">
-          <option value="">전체 카테고리</option>
-          <option value="가슴">가슴</option>
-          <option value="등">등</option>
-          <option value="어깨">어깨</option>
-          <option value="팔">팔</option>
-          <option value="복부">복부</option>
-          <option value="다리">다리</option>
-          <option value="유산소">유산소</option>
-          <option value="전신">전신</option>
-          <option value="기타">기타</option>
-          <option value="__none">미지정</option>
-        </select>
+
+      <!-- 루틴 공유용 -->
+      <div id="hist-panel-share">
+        <div class="toolbar" style="justify-content: space-between;">
+          <h2 style="margin:0;">저장된 루틴 <span class="badge" id="hist-count">0</span></h2>
+          <input type="search" id="hist-search" placeholder="제목/날짜 검색" style="max-width: 280px;" />
+        </div>
+        <div style="margin-top:8px; max-width: 280px;">
+          <select id="hist-filter-cat" style="font-size: 12px; padding: 6px 10px;">
+            <option value="">전체 카테고리</option>
+            <option value="가슴">가슴</option>
+            <option value="등">등</option>
+            <option value="어깨">어깨</option>
+            <option value="팔">팔</option>
+            <option value="복부">복부</option>
+            <option value="다리">다리</option>
+            <option value="유산소">유산소</option>
+            <option value="전신">전신</option>
+            <option value="기타">기타</option>
+            <option value="__none">미지정</option>
+          </select>
+        </div>
+        <div id="hist-list" style="margin-top:10px;"></div>
       </div>
-      <div id="hist-list" style="margin-top:10px;"></div>
+
+      <!-- 내 운동 기록 (캘린더) -->
+      <div id="hist-panel-log" style="display:none;">
+        <div class="calendar-nav">
+          <button id="cal-prev" aria-label="이전 달">‹</button>
+          <span class="cal-month-label" id="cal-month-label"></span>
+          <button id="cal-next" aria-label="다음 달">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <h3 style="margin:20px 0 10px; font-size:14px; color:var(--muted); font-weight:700;">이달 통계</h3>
+        <div class="monthly-stats" id="monthly-stats"></div>
+      </div>
     </div>
 
     <div class="panel" id="preview-panel" style="display:none;">
@@ -608,6 +673,15 @@
       <button class="ghost"  id="ed-cancel">취소</button>
       <button class="primary" id="ed-save">저장</button>
     </div>
+  </div>
+</div>
+
+<!-- 날짜별 운동 기록 상세 모달 -->
+<div class="modal-bg" id="day-detail-modal">
+  <div class="modal modal-lg">
+    <button class="modal-close-x" id="day-detail-close" aria-label="닫기">×</button>
+    <h3 id="day-detail-title" style="margin-right: 28px;"></h3>
+    <div id="day-detail-body" style="margin-top: 12px;"></div>
   </div>
 </div>
 
@@ -940,7 +1014,18 @@ upForm.addEventListener("submit", async (e) => {
   const file = upFile.files[0];
   if (!file) return;
   try {
-    const dataUrl = await resizeImage(file);
+    const isGif = file.type === "image/gif";
+    let dataUrl;
+    if (isGif) {
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    } else {
+      dataUrl = await resizeImage(file);
+    }
     const ex = {
       id: uid(),
       name: upName.value.trim(),
@@ -948,6 +1033,7 @@ upForm.addEventListener("submit", async (e) => {
       equipment: (document.getElementById("up-equipment").value || "").trim(),
       description: upDesc.value.trim(),
       imageDataUrl: dataUrl,
+      isGif,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -1226,19 +1312,23 @@ function renderSearchResults() {
           ${showEn ? `<div style="font-size:10px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(row.nameEn)}</div>` : ""}
           <div style="font-size:11px;color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(row.desc)}</div>
         </div>
-        <button class="edit-btn" data-action="edit" title="이름·설명 편집">편집</button>
+        <button class="edit-btn" data-action="detail" title="상세 보기">상세</button>
       </li>`;
     }).join("");
     rtResults.querySelectorAll("li[data-source]").forEach((li) => {
       li.addEventListener("click", (e) => {
-        if (e.target.closest('[data-action="edit"]')) return; // 편집 버튼은 별도 처리
+        if (e.target.closest('[data-action="detail"]')) return; // 상세 버튼은 별도 처리
         addItem(li.dataset.source, li.dataset.refid);
         rtSearch.value = "";
         rtResults.classList.remove("open");
       });
-      li.querySelector('[data-action="edit"]').addEventListener("click", (e) => {
+      li.querySelector('[data-action="detail"]').addEventListener("click", (e) => {
         e.stopPropagation();
-        openEdit(li.dataset.source, li.dataset.refid);
+        if (li.dataset.source === "seed") {
+          openDictionaryDetail(li.dataset.refid);
+        } else {
+          openLocalDetail(li.dataset.refid);
+        }
       });
     });
   }
@@ -1246,7 +1336,7 @@ function renderSearchResults() {
 }
 
 function addItem(source, refId) {
-  currentRoutine.items.push({ source, refId, sets: 3, reps: 10 });
+  currentRoutine.items.push({ source, refId, sets: 3, reps: 10, unit: "회" });
   renderRoutineItems();
 }
 
@@ -1272,9 +1362,9 @@ function renderRoutineItems() {
           <div class="ic-desc" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${desc}</div>
         </div>
         <div class="ic-controls">
-          <label style="margin:0;">회</label>
           <input type="number" data-role="reps" min="1" inputmode="numeric" value="${it.reps}" />
-          <label style="margin:0;">세트</label>
+          <button class="edit-btn" data-role="unit-toggle" title="회/초 전환" style="min-width:30px;font-weight:600;">${it.unit || "회"}</button>
+          <label style="margin:0;">× 세트</label>
           <input type="number" data-role="sets" min="1" inputmode="numeric" value="${it.sets}" />
           <button class="edit-btn" data-role="up"     title="위로 이동" ${idx === 0 ? "disabled" : ""}>↑</button>
           <button class="edit-btn" data-role="down"   title="아래로 이동" ${idx === currentRoutine.items.length - 1 ? "disabled" : ""}>↓</button>
@@ -1321,6 +1411,12 @@ function renderRoutineItems() {
         currentRoutine.items.splice(idx + 1, 0, it2);
         renderRoutineItems();
       }
+    });
+    const unitToggle = row.querySelector('button[data-role="unit-toggle"]');
+    if (unitToggle) unitToggle.addEventListener("click", () => {
+      const it2 = currentRoutine.items[idx];
+      it2.unit = (it2.unit || "회") === "회" ? "초" : "회";
+      renderRoutineItems();
     });
     row.querySelector('button[data-role="edit"]').addEventListener("click", () => {
       const it2 = currentRoutine.items[idx];
@@ -1434,6 +1530,200 @@ function renderHistory() {
     row.querySelector('[data-role="preview"]').addEventListener("click", () => openPreview(id));
     row.querySelector('[data-role="delete"]').addEventListener("click", () => deleteRoutine(id));
   });
+  // 캘린더 탭이 열려 있으면 같이 갱신
+  const logPanel = document.getElementById("hist-panel-log");
+  if (logPanel && logPanel.style.display !== "none") renderCalendar();
+}
+
+// ============ 기록 내역 서브탭 + 캘린더 ============
+const CAT_COLORS = {
+  "가슴":   "#e57373",
+  "등":     "#7986cb",
+  "어깨":   "#81c784",
+  "팔":     "#ff8a65",
+  "복부":   "#ffd54f",
+  "다리":   "#4db6ac",
+  "유산소": "#f48fb1",
+  "전신":   "#ba68c8",
+  "기타":   "#90a4ae",
+  "":       "#90a4ae",
+};
+
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-indexed
+
+function initHistorySubtabs() {
+  document.querySelectorAll(".subtab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const which = btn.dataset.subtab;
+      document.getElementById("hist-panel-share").style.display = which === "share" ? "" : "none";
+      document.getElementById("hist-panel-log").style.display   = which === "log"   ? "" : "none";
+      if (which === "log") renderCalendar();
+    });
+  });
+  document.getElementById("cal-prev").addEventListener("click", () => {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+  });
+  document.getElementById("cal-next").addEventListener("click", () => {
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+  });
+  document.getElementById("day-detail-close").addEventListener("click", () => {
+    document.getElementById("day-detail-modal").classList.remove("open");
+  });
+  document.getElementById("day-detail-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("day-detail-modal"))
+      document.getElementById("day-detail-modal").classList.remove("open");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("day-detail-modal").classList.contains("open"))
+      document.getElementById("day-detail-modal").classList.remove("open");
+  });
+}
+
+function buildDateMap(year, month) {
+  const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const map = {};
+  for (const r of routines) {
+    if (r.date && r.date.startsWith(prefix)) {
+      if (!map[r.date]) map[r.date] = [];
+      map[r.date].push(r);
+    }
+  }
+  return map;
+}
+
+function renderCalendar() {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  document.getElementById("cal-month-label").textContent = `${calYear}년 ${calMonth + 1}월`;
+
+  const dateMap = buildDateMap(calYear, calMonth);
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
+
+  const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  let html = DAYS.map((d) => `<div class="cal-header-cell">${d}</div>`).join("");
+
+  const startDow = firstDay.getDay();
+  for (let i = 0; i < startDow; i++) html += `<div class="cal-day other-month"></div>`;
+
+  for (let d = 1; d <= lastDate; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const rList = dateMap[ds] || [];
+    const isToday = ds === todayStr;
+    const hasW = rList.length > 0;
+    const dots = rList.map((r) => {
+      const c = CAT_COLORS[r.category || ""] || CAT_COLORS["기타"];
+      return `<span class="cal-dot" style="background:${c};" title="${escapeHtml(r.category || "기타")}"></span>`;
+    }).join("");
+    html += `<div class="cal-day${isToday ? " today" : ""}${hasW ? " has-workout" : ""}" data-date="${ds}">
+      <span class="cal-day-num">${d}</span>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }
+
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = html;
+  grid.querySelectorAll(".cal-day.has-workout").forEach((cell) => {
+    cell.addEventListener("click", () => openDayDetail(cell.dataset.date, dateMap[cell.dataset.date]));
+  });
+
+  renderMonthlyStats(dateMap);
+}
+
+function renderMonthlyStats(dateMap) {
+  const el = document.getElementById("monthly-stats");
+  const allR = Object.values(dateMap).flat();
+  const sessionCount = allR.length;
+  const dayCount = Object.keys(dateMap).length;
+
+  if (sessionCount === 0) {
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1;">이달 기록이 없습니다.</div>`;
+    return;
+  }
+
+  const catCount = {};
+  let totalSets = 0;
+  const exCount = {};
+
+  for (const r of allR) {
+    const c = r.category || "기타";
+    catCount[c] = (catCount[c] || 0) + 1;
+    for (const it of (r.items || [])) {
+      totalSets += (it.sets || 1);
+      const res = resolveExercise(it);
+      const nm = res ? res.name : "(삭제됨)";
+      exCount[nm] = (exCount[nm] || 0) + 1;
+    }
+  }
+
+  const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0];
+  const topEx  = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0];
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${sessionCount}</div><div class="stat-label">운동 세션</div></div>
+    <div class="stat-card"><div class="stat-num">${dayCount}</div><div class="stat-label">운동한 날</div></div>
+    <div class="stat-card"><div class="stat-num">${totalSets}</div><div class="stat-label">총 세트 수</div></div>
+    ${topCat ? `<div class="stat-card"><div class="stat-num stat-num-sm">${escapeHtml(topCat[0])}</div><div class="stat-label">주요 부위 (${topCat[1]}회)</div></div>` : ""}
+    ${topEx  ? `<div class="stat-card"><div class="stat-num stat-num-sm" style="font-size:13px;line-height:1.3;">${escapeHtml(topEx[0])}</div><div class="stat-label">최다 운동 (${topEx[1]}회)</div></div>` : ""}
+  `;
+}
+
+function openDayDetail(dateStr, rList) {
+  document.getElementById("day-detail-title").textContent = dateStr + " 운동 기록";
+  const body = document.getElementById("day-detail-body");
+  body.innerHTML = rList.map((r) => {
+    const catColor = CAT_COLORS[r.category || ""] || CAT_COLORS["기타"];
+    const exHtml = (r.items || []).map((it) => {
+      const res = resolveExercise(it);
+      const nm = res ? escapeHtml(res.name) : "(삭제된 동작)";
+      const unit = it.unit || "회";
+      return `<li>${nm} — ${it.reps}${unit} × ${it.sets}세트</li>`;
+    }).join("");
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+          <div>
+            <strong>${escapeHtml(r.title)}</strong>
+            ${r.category ? `<span class="badge" style="background:${catColor}33;color:${catColor};">${escapeHtml(r.category)}</span>` : ""}
+            <span class="badge">${(r.items || []).length}개</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-load="${r.id}">불러오기</button>
+            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-preview="${r.id}">JPG 출력</button>
+          </div>
+        </div>
+        ${r.memo ? `<p style="font-size:12px;color:var(--muted);margin:0 0 8px;">${escapeHtml(r.memo)}</p>` : ""}
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8;">${exHtml || "<li>(동작 없음)</li>"}</ul>
+      </div>`;
+  }).join("");
+
+  document.getElementById("day-detail-modal").classList.add("open");
+  const mc = document.getElementById("day-detail-modal").querySelector(".modal");
+  if (mc) mc.scrollTop = 0;
+
+  body.querySelectorAll("[data-day-load]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("day-detail-modal").classList.remove("open");
+      loadRoutine(btn.dataset.dayLoad);
+    });
+  });
+  body.querySelectorAll("[data-day-preview]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("day-detail-modal").classList.remove("open");
+      // 공유용 탭으로 전환 후 미리보기
+      document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.subtab === "share"));
+      document.getElementById("hist-panel-share").style.display = "";
+      document.getElementById("hist-panel-log").style.display = "none";
+      openPreview(btn.dataset.dayPreview);
+    });
+  });
 }
 
 function loadRoutine(id) {
@@ -1533,7 +1823,7 @@ function renderSheet(r) {
           ${nameEn ? `<div class="name-en">${nameEn}</div>` : ""}
           ${desc ? `<div class="desc">${desc}</div>` : ""}
         </div>
-        <div class="si-sr">${it.reps} × ${it.sets}<small>회 × 세트</small></div>
+        <div class="si-sr">${it.reps}${it.unit || "회"} × ${it.sets}<small>세트</small></div>
       </div>`;
   }).join("");
   return `
@@ -2057,6 +2347,7 @@ async function init() {
   initBackupPanel();
   initReminder();
   initAiPromptModal();
+  initHistorySubtabs();
   rtDate.value = currentRoutine.date;
   migrateRoutineItems();
   renderLibrary();
