@@ -263,22 +263,42 @@
   .calendar-nav button { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 20px; line-height: 1; color: var(--text); }
   .calendar-nav button:hover { border-color: var(--accent); color: var(--accent); }
   .cal-month-label { font-size: 17px; font-weight: 700; }
+  .cal-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .cal-toolbar select { font-size: 12px; padding: 6px 10px; max-width: 200px; }
+  .cal-toolbar .cal-legend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); margin-left: auto; }
+  .cal-legend-cell { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .cal-header-cell { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; padding: 6px 2px; }
-  .cal-day { border: 1px solid var(--border); border-radius: 8px; padding: 6px 5px; min-height: 64px; background: #fff; }
+  .cal-day { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 6px 5px; min-height: 64px; background: #fff; }
   .cal-day.has-workout { cursor: pointer; }
-  .cal-day.has-workout:hover { border-color: var(--accent); background: var(--accent-soft); }
-  .cal-day.today { border-color: var(--accent); }
+  .cal-day.has-workout:hover { border-color: var(--accent); }
+  .cal-day.quick-start { cursor: pointer; }
+  .cal-day.quick-start:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .cal-day.quick-start::before { content: "+"; position: absolute; right: 5px; top: 4px; font-size: 13px; color: var(--muted); opacity: 0; transition: opacity 0.12s; font-weight: 700; }
+  .cal-day.quick-start:hover::before { opacity: 1; color: var(--accent); }
+  .cal-day.today { border-color: var(--accent); border-width: 2px; padding: 5px 4px; }
+  .cal-day.future { opacity: 0.45; pointer-events: none; }
   .cal-day.other-month { background: var(--ph); opacity: 0.35; pointer-events: none; }
   .cal-day-num { font-size: 12px; font-weight: 700; display: block; margin-bottom: 3px; }
   .cal-day.today .cal-day-num { color: var(--accent); }
   .cal-dots { display: flex; flex-wrap: wrap; gap: 3px; }
   .cal-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  /* 히트맵 강도 (총 세트 수 기준) */
+  .cal-day.lvl-1 { background: color-mix(in srgb, var(--accent) 14%, #fff); }
+  .cal-day.lvl-2 { background: color-mix(in srgb, var(--accent) 32%, #fff); }
+  .cal-day.lvl-3 { background: color-mix(in srgb, var(--accent) 55%, #fff); }
+  .cal-day.lvl-4 { background: color-mix(in srgb, var(--accent) 80%, #fff); }
+  .cal-day.lvl-3 .cal-day-num,
+  .cal-day.lvl-4 .cal-day-num { color: #fff; }
+  .cal-day.lvl-3 .cal-dot,
+  .cal-day.lvl-4 .cal-dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.65); }
   @media (max-width: 640px) {
     .cal-day { min-height: 44px; padding: 4px 3px; }
+    .cal-day.today { padding: 3px 2px; }
     .cal-day-num { font-size: 10px; margin-bottom: 2px; }
     .cal-dot { width: 6px; height: 6px; }
     .cal-header-cell { font-size: 10px; padding: 4px 1px; }
+    .cal-day.quick-start::before { display: none; }
   }
 
   /* 월간 통계 */
@@ -287,6 +307,16 @@
   .stat-card .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .stat-card .stat-num.stat-num-sm { font-size: 15px; }
   .stat-card .stat-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .stat-card.streak .stat-num::after { content: "일"; font-size: 14px; font-weight: 700; margin-left: 2px; }
+
+  /* 부위별 막대 차트 */
+  .cat-bars { margin-top: 18px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .cat-bars h3 { margin: 0 0 12px; font-size: 14px; color: var(--muted); font-weight: 700; }
+  .cat-bar-row { display: grid; grid-template-columns: 60px 1fr 32px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+  .cat-bar-name { font-weight: 600; color: var(--text); }
+  .cat-bar-track { height: 10px; background: var(--ph); border-radius: 5px; overflow: hidden; }
+  .cat-bar-fill { height: 100%; border-radius: 5px; transition: width 0.25s ease; }
+  .cat-bar-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -501,9 +531,37 @@
           <span class="cal-month-label" id="cal-month-label"></span>
           <button id="cal-next" aria-label="다음 달">›</button>
         </div>
+        <div class="cal-toolbar">
+          <select id="cal-filter-cat" aria-label="카테고리 필터">
+            <option value="">전체 카테고리</option>
+            <option value="가슴">가슴</option>
+            <option value="등">등</option>
+            <option value="어깨">어깨</option>
+            <option value="팔">팔</option>
+            <option value="복부">복부</option>
+            <option value="다리">다리</option>
+            <option value="유산소">유산소</option>
+            <option value="전신">전신</option>
+            <option value="기타">기타</option>
+            <option value="__none">미지정</option>
+          </select>
+          <span class="cal-legend">
+            <span>적음</span>
+            <span class="cal-legend-cell" style="background:#fff;"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 14%, #fff);"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 32%, #fff);"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 55%, #fff);"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 80%, #fff);"></span>
+            <span>많음</span>
+          </span>
+        </div>
         <div class="cal-grid" id="cal-grid"></div>
         <h3 style="margin:20px 0 10px; font-size:14px; color:var(--muted); font-weight:700;">이달 통계</h3>
         <div class="monthly-stats" id="monthly-stats"></div>
+        <div class="cat-bars" id="cat-bars" style="display:none;">
+          <h3>부위별 빈도</h3>
+          <div id="cat-bars-list"></div>
+        </div>
       </div>
     </div>
 
@@ -1551,6 +1609,63 @@ const CAT_COLORS = {
 
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
+let calCategoryFilter = "";
+
+function levelForSets(totalSets) {
+  if (totalSets <= 0) return 0;
+  if (totalSets <= 9)  return 1;
+  if (totalSets <= 19) return 2;
+  if (totalSets <= 29) return 3;
+  return 4;
+}
+
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function computeStreak() {
+  const dateSet = new Set();
+  for (const r of routines) if (r.date) dateSet.add(r.date);
+  if (dateSet.size === 0) return { current: 0, longest: 0 };
+
+  const dates = [...dateSet].sort();
+  let longest = 1, run = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i-1] + "T00:00:00");
+    const cur  = new Date(dates[i]   + "T00:00:00");
+    const diff = Math.round((cur - prev) / 86400000);
+    if (diff === 1) { run++; longest = Math.max(longest, run); }
+    else run = 1;
+  }
+
+  const today = new Date();
+  const todayStr = ymd(today);
+  let walking = new Date(todayStr + "T00:00:00");
+  if (!dateSet.has(todayStr)) {
+    walking.setDate(walking.getDate() - 1);
+    if (!dateSet.has(ymd(walking))) return { current: 0, longest };
+  }
+  let current = 0;
+  while (dateSet.has(ymd(walking))) {
+    current++;
+    walking.setDate(walking.getDate() - 1);
+  }
+  return { current, longest };
+}
+
+function quickStartOnDate(dateStr) {
+  const dirty = (currentRoutine.items && currentRoutine.items.length > 0)
+    || (rtTitle.value && rtTitle.value.trim())
+    || editingRoutineId;
+  if (dirty) {
+    if (!confirm(`${dateStr} 날짜로 새 기록을 만들까요? 작성 중인 내용은 사라집니다.`)) return;
+  }
+  resetRoutineBuilder();
+  currentRoutine.date = dateStr;
+  rtDate.value = dateStr;
+  switchTab("routine");
+  setTimeout(() => rtTitle.focus(), 0);
+}
 
 function initHistorySubtabs() {
   document.querySelectorAll(".subtab-btn").forEach((btn) => {
@@ -1571,6 +1686,10 @@ function initHistorySubtabs() {
   document.getElementById("cal-next").addEventListener("click", () => {
     calMonth++;
     if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+  });
+  document.getElementById("cal-filter-cat").addEventListener("change", (e) => {
+    calCategoryFilter = e.target.value;
     renderCalendar();
   });
   document.getElementById("day-detail-close").addEventListener("click", () => {
@@ -1598,12 +1717,27 @@ function buildDateMap(year, month) {
   return map;
 }
 
+function filterDateMap(map, catFilter) {
+  if (!catFilter) return map;
+  const out = {};
+  for (const [date, rList] of Object.entries(map)) {
+    const matched = rList.filter((r) => {
+      const c = r.category || "";
+      if (catFilter === "__none") return !c;
+      return c === catFilter;
+    });
+    if (matched.length) out[date] = matched;
+  }
+  return out;
+}
+
 function renderCalendar() {
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const todayStr = ymd(today);
   document.getElementById("cal-month-label").textContent = `${calYear}년 ${calMonth + 1}월`;
 
-  const dateMap = buildDateMap(calYear, calMonth);
+  const dateMapAll = buildDateMap(calYear, calMonth);
+  const dateMap    = filterDateMap(dateMapAll, calCategoryFilter);
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
 
@@ -1616,13 +1750,34 @@ function renderCalendar() {
   for (let d = 1; d <= lastDate; d++) {
     const ds = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const rList = dateMap[ds] || [];
-    const isToday = ds === todayStr;
-    const hasW = rList.length > 0;
+    const allList = dateMapAll[ds] || [];
+    const isToday  = ds === todayStr;
+    const isFuture = ds > todayStr;
+    const hasMatch = rList.length > 0;
+    const hasAny   = allList.length > 0;
+
+    let totalSets = 0;
+    for (const r of rList) {
+      for (const it of (r.items || [])) totalSets += (it.sets || 1);
+    }
+    const lvl = levelForSets(totalSets);
+
     const dots = rList.map((r) => {
       const c = CAT_COLORS[r.category || ""] || CAT_COLORS["기타"];
       return `<span class="cal-dot" style="background:${c};" title="${escapeHtml(r.category || "기타")}"></span>`;
     }).join("");
-    html += `<div class="cal-day${isToday ? " today" : ""}${hasW ? " has-workout" : ""}" data-date="${ds}">
+
+    const classes = ["cal-day"];
+    if (isToday)  classes.push("today");
+    if (isFuture) classes.push("future");
+    if (hasMatch) classes.push("has-workout", `lvl-${lvl}`);
+    else if (!isFuture && !hasAny) classes.push("quick-start");
+
+    const titleAttr = hasMatch
+      ? ` title="${rList.length}개 세션 · 총 ${totalSets}세트"`
+      : (!isFuture && !hasAny ? ` title="${ds} 새 기록 만들기"` : "");
+
+    html += `<div class="${classes.join(" ")}" data-date="${ds}"${titleAttr}>
       <span class="cal-day-num">${d}</span>
       <div class="cal-dots">${dots}</div>
     </div>`;
@@ -1633,18 +1788,25 @@ function renderCalendar() {
   grid.querySelectorAll(".cal-day.has-workout").forEach((cell) => {
     cell.addEventListener("click", () => openDayDetail(cell.dataset.date, dateMap[cell.dataset.date]));
   });
+  grid.querySelectorAll(".cal-day.quick-start").forEach((cell) => {
+    cell.addEventListener("click", () => quickStartOnDate(cell.dataset.date));
+  });
 
   renderMonthlyStats(dateMap);
 }
 
 function renderMonthlyStats(dateMap) {
-  const el = document.getElementById("monthly-stats");
+  const el       = document.getElementById("monthly-stats");
+  const barsBox  = document.getElementById("cat-bars");
+  const barsList = document.getElementById("cat-bars-list");
   const allR = Object.values(dateMap).flat();
   const sessionCount = allR.length;
   const dayCount = Object.keys(dateMap).length;
+  const streak = computeStreak();
 
   if (sessionCount === 0) {
-    el.innerHTML = `<div class="empty" style="grid-column:1/-1;">이달 기록이 없습니다.</div>`;
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1;">${calCategoryFilter ? "이 카테고리의 기록이 없습니다." : "이달 기록이 없습니다."}</div>`;
+    barsBox.style.display = "none";
     return;
   }
 
@@ -1663,16 +1825,33 @@ function renderMonthlyStats(dateMap) {
     }
   }
 
-  const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0];
-  const topEx  = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0];
+  const topEx = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0];
 
   el.innerHTML = `
     <div class="stat-card"><div class="stat-num">${sessionCount}</div><div class="stat-label">운동 세션</div></div>
     <div class="stat-card"><div class="stat-num">${dayCount}</div><div class="stat-label">운동한 날</div></div>
     <div class="stat-card"><div class="stat-num">${totalSets}</div><div class="stat-label">총 세트 수</div></div>
-    ${topCat ? `<div class="stat-card"><div class="stat-num stat-num-sm">${escapeHtml(topCat[0])}</div><div class="stat-label">주요 부위 (${topCat[1]}회)</div></div>` : ""}
-    ${topEx  ? `<div class="stat-card"><div class="stat-num stat-num-sm" style="font-size:13px;line-height:1.3;">${escapeHtml(topEx[0])}</div><div class="stat-label">최다 운동 (${topEx[1]}회)</div></div>` : ""}
+    <div class="stat-card streak"><div class="stat-num">${streak.current}</div><div class="stat-label">현재 연속 🔥</div></div>
+    <div class="stat-card streak"><div class="stat-num">${streak.longest}</div><div class="stat-label">최장 연속</div></div>
+    ${topEx ? `<div class="stat-card"><div class="stat-num stat-num-sm" style="font-size:13px;line-height:1.3;">${escapeHtml(topEx[0])}</div><div class="stat-label">최다 운동 (${topEx[1]}회)</div></div>` : ""}
   `;
+
+  const sortedCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]);
+  if (calCategoryFilter || sortedCats.length <= 1) {
+    barsBox.style.display = "none";
+  } else {
+    const maxCount = sortedCats[0][1];
+    barsList.innerHTML = sortedCats.map(([cat, count]) => {
+      const color = CAT_COLORS[cat] || CAT_COLORS["기타"];
+      const pct = (count / maxCount) * 100;
+      return `<div class="cat-bar-row">
+        <span class="cat-bar-name">${escapeHtml(cat)}</span>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%; background:${color};"></div></div>
+        <span class="cat-bar-count">${count}</span>
+      </div>`;
+    }).join("");
+    barsBox.style.display = "";
+  }
 }
 
 function openDayDetail(dateStr, rList) {
