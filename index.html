@@ -322,8 +322,8 @@
             <input type="text" id="up-name" required placeholder="예: 푸쉬업" />
           </div>
           <div>
-            <label>이미지 / GIF *</label>
-            <input type="file" id="up-file" accept="image/*" required />
+            <label>이미지 파일 *</label>
+            <input type="file" id="up-file" accept="image/jpeg,image/png,image/webp" required />
           </div>
         </div>
         <div class="row" style="margin-top:10px;">
@@ -361,7 +361,7 @@
         <div class="toolbar" style="margin-top:10px;">
           <button type="submit" class="primary">업로드</button>
           <button type="button" class="ghost" id="ai-prompt-btn">🎨 AI 이미지 프롬프트 생성</button>
-          <span class="hint">JPG·PNG는 800px로 리사이즈 저장, GIF는 애니메이션 그대로 저장됩니다.</span>
+          <span class="hint">이미지는 자동으로 800px로 리사이즈되어 저장됩니다.</span>
         </div>
       </form>
     </div>
