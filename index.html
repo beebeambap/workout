@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="firebase-config.js" onerror="console.warn('[firebase-config.js 미존재] 클라우드 동기화 비활성. firebase-config.example.js 를 복사·작성하세요.')"></script>
 <style>
-  :root {
+  :root{
     /* palette: minimal-latte */
     --bg: #efeae0;
     --panel: #ffffff;
@@ -21,11 +21,49 @@
     --ph: #f0ebe0;
     --shadow: 0 2px 8px rgba(40, 30, 20, 0.06);
     --radius: 10px;
+
+    /* 의미 색상 (모든 팔레트 공통 톤, 팔레트별 미세 조정 가능) */
+    --success:      oklch(50% 0.13 150);
+    --success-soft: oklch(94% 0.04 150);
+    --warning:      oklch(58% 0.13 75);
+    --warning-soft: oklch(94% 0.05 80);
+    --warning-ink:  oklch(35% 0.10 70);
+    --info:         oklch(52% 0.12 245);
+    --info-soft:    oklch(94% 0.03 250);
+
+    /* 상태 dot (인증·동기화) */
+    --status-ok:      oklch(63% 0.16 150);
+    --status-syncing: oklch(82% 0.18 90);
+    --status-error:   oklch(58% 0.21 28);
+    --status-offline: oklch(67% 0.04 220);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; -webkit-overflow-scrolling: touch; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; -webkit-overflow-scrolling: touch; transition: background 0.2s ease, color 0.2s ease; }
+
+  /* 숫자 정렬 — 표·통계에서 줄 맞춤 */
+  .stat-num, .cal-day-num, .si-num, .badge,
+  .cat-bar-count, .auth-email, input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 작은 라벨 (편집 디자인 스타일) */
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before {
+    content: ""; display: inline-block; width: 18px; height: 1px;
+    background: var(--muted); opacity: 0.6;
+  }
   body { overflow-x: hidden; }
-  header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   header h1 { margin: 0; font-size: 18px; }
   .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   #palette-select { width: auto; padding: 6px 10px; font-size: 12px; }
@@ -37,10 +75,10 @@
   .auth-guest-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--ph); color: var(--muted); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); cursor: pointer; font-family: inherit; }
   .auth-guest-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .auth-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); padding: 4px 4px 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; max-width: 220px; }
-  .auth-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; flex: 0 0 auto; }
-  .auth-status-dot.syncing { background: #ffc107; animation: pulse 1.2s ease-in-out infinite; }
-  .auth-status-dot.error { background: #e53935; }
-  .auth-status-dot.offline { background: #90a4ae; }
+  .auth-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-ok); flex: 0 0 auto; transition: background 0.18s ease; }
+  .auth-status-dot.syncing { background: var(--status-syncing); animation: pulse 1.2s ease-in-out infinite; }
+  .auth-status-dot.error   { background: var(--status-error); }
+  .auth-status-dot.offline { background: var(--status-offline); }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   .auth-email { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .auth-logout-x { background: transparent; border: 0; color: var(--accent); font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 50%; opacity: 0.7; }
@@ -57,7 +95,7 @@
   h2 { font-size: 18px; margin: 0 0 12px; }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  input[type=text], input[type=date], input[type=search], textarea, select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; color: var(--text); }
+  input[type=text], input[type=date], input[type=search], input[type=number], input[type=email], textarea, select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--panel); color: var(--text); }
   textarea { min-height: 60px; resize: vertical; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
@@ -67,7 +105,7 @@
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .toolbar > * { flex: 0 0 auto; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; display: flex; flex-direction: column; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; display: flex; flex-direction: column; }
   .card:hover { border-color: var(--accent); transform: translateY(-1px); }
   .card .thumb { width: 100%; aspect-ratio: 1 / 1; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .card .thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
@@ -75,7 +113,7 @@
   .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .card .desc { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .empty { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; }
-  .search-results { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; display: none; }
+  .search-results { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); display: none; }
   .search-results.open { display: block; }
   .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
   .search-results li:hover { background: var(--accent-soft); }
@@ -100,13 +138,13 @@
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--panel);
     margin-bottom: 8px;
   }
   .item > img { grid-area: img; width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--ph); }
   .item .ic-meta { grid-area: meta; align-self: center; min-width: 0; }
   .item .ic-memo { grid-area: memo; width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px dashed var(--border); border-radius: 6px; font-size: 12px; color: var(--text); background: var(--ph); }
-  .item .ic-memo:focus { outline: none; border-color: var(--accent); border-style: solid; background: #fff; }
+  .item .ic-memo:focus { outline: none; border-color: var(--accent); border-style: solid; background: var(--panel); }
   .item .ic-meta .ic-name { font-weight: 600; font-size: 14px; }
   .item .ic-meta .ic-name-en { font-size: 11px; color: var(--muted); font-weight: 400; font-style: italic; margin-top: 2px; }
   .item .ic-meta .ic-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -118,7 +156,7 @@
     .item .ic-controls button { font-size: 11px; padding: 5px 8px; }
     .item .ic-controls input[type="number"] { width: 54px; }
   }
-  .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; margin-bottom: 8px; flex-wrap: wrap; }
+  .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); margin-bottom: 8px; flex-wrap: wrap; }
   .history-row .meta { display: flex; flex-direction: column; }
   .history-row .title { font-weight: 600; font-size: 14px; }
   .history-row .sub { font-size: 12px; color: var(--muted); }
@@ -137,7 +175,7 @@
     -webkit-overflow-scrolling: touch;
   }
   .modal-bg.open { display: flex; }
-  .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); position: relative; margin-block: auto; }
+  .modal { background: var(--panel); border-radius: 12px; max-width: 520px; width: 100%; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); position: relative; margin-block: auto; }
   .modal.modal-lg { max-width: 760px; padding: 22px 24px; }
   @media (max-width: 720px) {
     .modal-bg { padding: 12px; }
@@ -210,7 +248,7 @@
 
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .top-actions { display: flex; gap: 8px; }
-  .editing-banner { background: #fff7e6; border: 1px solid #f1c772; color: #8a5a00; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; align-items: center; justify-content: space-between; gap: 8px; }
+  .editing-banner { background: var(--warning-soft); border: 1px solid var(--warning); color: var(--warning-ink); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; align-items: center; justify-content: space-between; gap: 8px; }
   .editing-banner.open { display: flex; }
 
   .reminder-banner {
@@ -261,7 +299,7 @@
   .dict-detail ol.steps.en li { color: var(--muted); font-size: 12px; font-style: italic; }
   .dict-detail .meta-line { font-size: 11px; color: var(--muted); margin-top: 14px; }
   .src-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle; font-weight: 600; }
-  .src-badge.seed  { background: #e6f4ea; color: #2e7d32; }
+  .src-badge.seed  { background: var(--success-soft); color: var(--success); }
   .src-badge.local { background: var(--accent-soft); color: var(--accent); }
   .seed-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
   .seed-status.err { color: var(--danger); }
@@ -292,7 +330,7 @@
   .cal-legend-cell { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .cal-header-cell { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; padding: 6px 2px; }
-  .cal-day { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 6px 5px; min-height: 64px; background: #fff; }
+  .cal-day { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 6px 5px; min-height: 64px; background: var(--panel); }
   .cal-day.has-workout { cursor: pointer; }
   .cal-day.has-workout:hover { border-color: var(--accent); }
   .cal-day.quick-start { cursor: pointer; }
@@ -306,14 +344,14 @@
   .cal-day.today .cal-day-num { color: var(--accent); }
   .cal-cats { font-size: 10px; color: var(--text); margin-top: 2px; line-height: 1.3; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cal-day.lvl-3 .cal-cats,
-  .cal-day.lvl-4 .cal-cats { color: rgba(255,255,255,0.95); }
-  /* 히트맵 강도 (총 세트 수 기준) */
-  .cal-day.lvl-1 { background: color-mix(in srgb, var(--accent) 14%, #fff); }
-  .cal-day.lvl-2 { background: color-mix(in srgb, var(--accent) 32%, #fff); }
-  .cal-day.lvl-3 { background: color-mix(in srgb, var(--accent) 55%, #fff); }
-  .cal-day.lvl-4 { background: color-mix(in srgb, var(--accent) 80%, #fff); }
+  .cal-day.lvl-4 .cal-cats { color: color-mix(in srgb, var(--bg) 92%, transparent); }
+  /* 히트맵 강도 (총 세트 수 기준) — 테마 친화적 */
+  .cal-day.lvl-1 { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+  .cal-day.lvl-2 { background: color-mix(in srgb, var(--accent) 32%, var(--panel)); }
+  .cal-day.lvl-3 { background: color-mix(in srgb, var(--accent) 55%, var(--panel)); }
+  .cal-day.lvl-4 { background: color-mix(in srgb, var(--accent) 80%, var(--panel)); }
   .cal-day.lvl-3 .cal-day-num,
-  .cal-day.lvl-4 .cal-day-num { color: #fff; }
+  .cal-day.lvl-4 .cal-day-num { color: var(--bg); }
   @media (max-width: 640px) {
     .cal-day { min-height: 44px; padding: 4px 3px; }
     .cal-day.today { padding: 3px 2px; }
@@ -325,14 +363,14 @@
 
   /* 월간 통계 */
   .monthly-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 16px; }
-  .stat-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 10px; text-align: center; }
+  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 10px; text-align: center; }
   .stat-card .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .stat-card .stat-num.stat-num-sm { font-size: 15px; }
   .stat-card .stat-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .stat-card.streak .stat-num::after { content: "일"; font-size: 14px; font-weight: 700; margin-left: 2px; }
 
   /* 부위별 막대 차트 */
-  .cat-bars { margin-top: 18px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .cat-bars { margin-top: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
   .cat-bars h3 { margin: 0 0 12px; font-size: 14px; color: var(--muted); font-weight: 700; }
   .cat-bar-row { display: grid; grid-template-columns: 60px 1fr 32px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
   .cat-bar-name { font-weight: 600; color: var(--text); }
@@ -349,7 +387,7 @@
   .settings-mode-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .settings-mode-badge.guest { background: var(--ph); color: var(--muted); border: 1px solid var(--border); }
   .settings-mode-badge.auth-on  { background: var(--accent-soft); color: var(--accent); }
-  .settings-mode-badge.auth-off { background: #fff7e6; color: #8a5a00; border: 1px solid #f1c772; }
+  .settings-mode-badge.auth-off { background: var(--warning-soft); color: var(--warning-ink); border: 1px solid var(--warning); }
 </style>
 </head>
 <body>
@@ -633,11 +671,11 @@
           </select>
           <span class="cal-legend">
             <span>적음</span>
-            <span class="cal-legend-cell" style="background:#fff;"></span>
-            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 14%, #fff);"></span>
-            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 32%, #fff);"></span>
-            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 55%, #fff);"></span>
-            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 80%, #fff);"></span>
+            <span class="cal-legend-cell" style="background:var(--panel);"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 14%, var(--panel));"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 32%, var(--panel));"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 55%, var(--panel));"></span>
+            <span class="cal-legend-cell" style="background:color-mix(in srgb, var(--accent) 80%, var(--panel));"></span>
             <span>많음</span>
           </span>
         </div>
@@ -957,6 +995,35 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ============ Theme palettes ============
+// 의미 색상 (라이트 팔레트 공통)
+const SEMANTIC_LIGHT = {
+  "--success":      "oklch(50% 0.13 150)",
+  "--success-soft": "oklch(94% 0.04 150)",
+  "--warning":      "oklch(58% 0.13 75)",
+  "--warning-soft": "oklch(94% 0.05 80)",
+  "--warning-ink":  "oklch(35% 0.10 70)",
+  "--info":         "oklch(52% 0.12 245)",
+  "--info-soft":    "oklch(94% 0.03 250)",
+  "--status-ok":      "oklch(63% 0.16 150)",
+  "--status-syncing": "oklch(82% 0.18 90)",
+  "--status-error":   "oklch(58% 0.21 28)",
+  "--status-offline": "oklch(67% 0.04 220)",
+};
+// 의미 색상 (다크용 — 명도·채도 lift)
+const SEMANTIC_DARK = {
+  "--success":      "oklch(72% 0.14 150)",
+  "--success-soft": "oklch(28% 0.06 150)",
+  "--warning":      "oklch(76% 0.14 80)",
+  "--warning-soft": "oklch(28% 0.07 75)",
+  "--warning-ink":  "oklch(86% 0.10 80)",
+  "--info":         "oklch(72% 0.13 245)",
+  "--info-soft":    "oklch(28% 0.06 245)",
+  "--status-ok":      "oklch(72% 0.16 150)",
+  "--status-syncing": "oklch(82% 0.18 90)",
+  "--status-error":   "oklch(70% 0.20 28)",
+  "--status-offline": "oklch(58% 0.04 220)",
+};
+
 const PALETTES = {
   "minimal-latte": {
     name: "미니멀 라떼 (베이지)",
@@ -971,6 +1038,7 @@ const PALETTES = {
       "--danger":      "#c04a3e",
       "--ph":          "#f0ebe0",
       "--shadow":      "0 2px 8px rgba(40, 30, 20, 0.06)",
+      ...SEMANTIC_LIGHT,
     },
   },
   "cool-blue": {
@@ -986,6 +1054,7 @@ const PALETTES = {
       "--danger":      "#dc2626",
       "--ph":          "#f1f5f9",
       "--shadow":      "0 2px 8px rgba(15, 30, 60, 0.06)",
+      ...SEMANTIC_LIGHT,
     },
   },
   "vivid-red": {
@@ -1001,6 +1070,23 @@ const PALETTES = {
       "--danger":      "#92400e",
       "--ph":          "#f8f3f1",
       "--shadow":      "0 2px 8px rgba(60, 20, 20, 0.06)",
+      ...SEMANTIC_LIGHT,
+    },
+  },
+  "dark": {
+    name: "🌙 다크 (야간 모드)",
+    vars: {
+      "--bg":          "oklch(14% 0.01 60)",
+      "--panel":       "oklch(18% 0.012 60)",
+      "--text":        "oklch(96% 0.005 80)",
+      "--muted":       "oklch(64% 0.012 60)",
+      "--accent":      "oklch(72% 0.04 60)",
+      "--accent-soft": "oklch(26% 0.025 65)",
+      "--border":      "oklch(28% 0.015 60)",
+      "--danger":      "oklch(72% 0.18 28)",
+      "--ph":          "oklch(22% 0.012 60)",
+      "--shadow":      "0 2px 12px rgba(0, 0, 0, 0.4)",
+      ...SEMANTIC_DARK,
     },
   },
 };
@@ -1345,7 +1431,7 @@ function renderLibrary() {
     <div class="card" data-id="${e.id}">
       <div class="thumb"><img src="${e.imageDataUrl}" alt="${escapeHtml(e.name)}" /></div>
       <div class="meta">
-        <div class="name">${escapeHtml(e.name)}${e.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(e.category)}</span>` : ""}</div>
+        <div class="name">${escapeHtml(e.name)}${e.category ? ` <span class="badge" style="background:var(--success-soft);color:var(--success);">${escapeHtml(e.category)}</span>` : ""}</div>
         <div class="desc">${escapeHtml(e.description || "설명 없음")}</div>
       </div>
     </div>`).join("");
@@ -1860,7 +1946,7 @@ function renderHistory() {
   histList.innerHTML = list.map((r) => `
     <div class="history-row" data-id="${r.id}">
       <div class="meta">
-        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span>${r.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(r.category)}</span>` : ""}${r.subCategory ? ` <span class="badge" style="background:var(--ph);color:var(--muted);">+${escapeHtml(r.subCategory)}</span>` : ""}</div>
+        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span>${r.category ? ` <span class="badge" style="background:var(--success-soft);color:var(--success);">${escapeHtml(r.category)}</span>` : ""}${r.subCategory ? ` <span class="badge" style="background:var(--ph);color:var(--muted);">+${escapeHtml(r.subCategory)}</span>` : ""}</div>
         <div class="sub">${r.date}</div>
       </div>
       <div class="top-actions">
@@ -2211,7 +2297,7 @@ function openDayDetail(dateStr, rList) {
       cardioHtml = `<p style="margin:6px 0 0; font-size:13px; color:var(--accent);">🏃 ${parts.join(" · ")}</p>`;
     }
     return `
-      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;">
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--panel);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
           <div>
             <strong>${escapeHtml(r.title)}</strong>
@@ -3019,7 +3105,7 @@ function flashProfileSaved() {
   const el = document.getElementById("profile-saved-hint");
   if (!el) return;
   el.textContent = "✓ 저장됨";
-  el.style.color = "#2e7d32";
+  el.style.color = "var(--success)";
   setTimeout(() => { el.textContent = ""; }, 2000);
 }
 
@@ -3087,8 +3173,8 @@ function setAuthStatus(text, kind) {
   const el = document.getElementById("auth-status");
   if (!el) return;
   el.textContent = text || "";
-  el.style.color = kind === "error" ? "#c04a3e"
-                : kind === "success" ? "#2e7d32"
+  el.style.color = kind === "error" ? "var(--danger)"
+                : kind === "success" ? "var(--success)"
                 : "var(--muted)";
 }
 
@@ -3488,10 +3574,20 @@ function initPaletteSwitcher() {
     .map(([id, p]) => `<option value="${id}">테마: ${escapeHtml(p.name)}</option>`)
     .join("");
   const saved = localStorage.getItem(PALETTE_KEY);
-  const initial = (saved && PALETTES[saved]) ? saved : "minimal-latte";
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const initial = (saved && PALETTES[saved]) ? saved : (prefersDark ? "dark" : "minimal-latte");
   sel.value = initial;
   applyPalette(initial);
   sel.addEventListener("change", (e) => applyPalette(e.target.value));
+  // OS 테마 변경 시 — 사용자가 명시적으로 선택했다면(localStorage 존재) 그 선택 우선
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", (e) => {
+      if (localStorage.getItem(PALETTE_KEY)) return;
+      const next = e.matches ? "dark" : "minimal-latte";
+      sel.value = next;
+      applyPalette(next, { skipSync: true });
+    });
+  }
 }
 
 async function init() {
