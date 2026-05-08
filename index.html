@@ -22,6 +22,23 @@
     --shadow: 0 2px 8px rgba(40, 30, 20, 0.06);
     --radius: 10px;
 
+    /* 간격 스케일 (4-base) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+
+    /* 폰트 사이즈 스케일 */
+    --text-xs:   11px;
+    --text-sm:   12px;
+    --text-base: 14px;
+    --text-md:   15px;
+    --text-lg:   17px;
+    --text-xl:   22px;
+    --text-2xl:  26px;
+
     /* 의미 색상 (모든 팔레트 공통 톤, 팔레트별 미세 조정 가능) */
     --success:      oklch(50% 0.13 150);
     --success-soft: oklch(94% 0.04 150);
@@ -127,15 +144,18 @@
   textarea { min-height: 60px; resize: vertical; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
-  button.primary { background: var(--accent); color: #fff; border: 0; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  button.primary { background: var(--accent); color: #fff; border: 0; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: var(--text-base); }
   button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
   button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  /* 버튼 size modifier — primary/ghost/danger 와 함께 사용 */
+  button.btn-sm { font-size: var(--text-sm); padding: 6px 12px; }
+  button.btn-xs { font-size: var(--text-xs); padding: 4px 10px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .toolbar > * { flex: 0 0 auto; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; display: flex; flex-direction: column; }
   .card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .card .thumb { width: 100%; aspect-ratio: 1 / 1; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .card .thumb { width: 100%; aspect-ratio: 1 / 1; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .card .thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
   .card .meta { padding: 8px 10px; }
   .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
@@ -310,7 +330,7 @@
      (정사각 박스 letterbox 와 강제 확대 모두 방지) */
   #dict-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .dict-card .name-en { font-size: 11px; color: var(--muted); font-style: italic; }
-  .dict-card .thumb { aspect-ratio: auto; background: var(--ph); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .dict-card .thumb { aspect-ratio: auto; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .dict-card .thumb img { max-width: 100%; height: auto; display: block; }
 
   .dict-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
@@ -2574,9 +2594,9 @@ function openDayDetail(dateStr, rList) {
             <span class="badge">${(r.items || []).length}개</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-load="${r.id}">불러오기</button>
-            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-repeat="${r.id}" title="오늘 날짜로 복제">📅 오늘 복제</button>
-            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-preview="${r.id}">JPG 출력</button>
+            <button class="ghost btn-xs" data-day-load="${r.id}">불러오기</button>
+            <button class="ghost btn-xs" data-day-repeat="${r.id}" title="오늘 날짜로 복제">📅 오늘 복제</button>
+            <button class="ghost btn-xs" data-day-preview="${r.id}">JPG 출력</button>
           </div>
         </div>
         ${r.memo ? `<p style="font-size:12px;color:var(--muted);margin:0 0 8px;">${escapeHtml(r.memo)}</p>` : ""}
