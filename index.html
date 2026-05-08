@@ -885,6 +885,13 @@ import {
   onAuthStateChanged,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ============ Theme palettes ============
 const PALETTES = {
@@ -935,13 +942,14 @@ const PALETTES = {
   },
 };
 const PALETTE_KEY = "workout.palette";
-function applyPalette(id) {
+function applyPalette(id, opts = {}) {
   const p = PALETTES[id];
   if (!p) return;
   for (const [k, v] of Object.entries(p.vars)) {
     document.documentElement.style.setProperty(k, v);
   }
   localStorage.setItem(PALETTE_KEY, id);
+  if (!opts.skipSync && typeof schedulePushIfReady === "function") schedulePushIfReady();
 }
 
 // ============ Storage ============
@@ -951,7 +959,10 @@ const KEYS = {
   seedOverrides: "workout.seedOverrides.v1",  // 시드 동작에 대한 사용자 개인 한글 수정
 };
 const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const save = (k, v) => {
+  localStorage.setItem(k, JSON.stringify(v));
+  if (typeof schedulePushIfReady === "function") schedulePushIfReady();
+};
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 let exercises      = load(KEYS.exercises, []);
@@ -2754,6 +2765,7 @@ function loadProfile() {
 }
 function saveProfile(p) {
   localStorage.setItem(PROFILE_KEY, JSON.stringify({ name: p.name || "", memo: p.memo || "" }));
+  if (typeof schedulePushIfReady === "function") schedulePushIfReady();
 }
 
 function updateSettingsTab() {
@@ -2979,7 +2991,8 @@ function initAuth() {
   }
 
   // 2) 인증 상태 변화 구독
-  onAuthStateChanged(firebaseAuth, (user) => {
+  onAuthStateChanged(firebaseAuth, async (user) => {
+    const wasLoggedIn = !!firebaseUser;
     firebaseUser = user;
     updateAuthUI();
     refreshReminderUI();
@@ -2989,6 +3002,16 @@ function initAuth() {
     }
     if (user) {
       console.log("[auth] 로그인됨:", user.email);
+      // Firestore 초기화 + 첫 동기화
+      if (!firebaseDb) {
+        try { firebaseDb = getFirestore(firebaseApp); }
+        catch (err) { console.error("[sync] getFirestore 실패", err); }
+      }
+      if (firebaseDb) await pullOnLogin();
+    } else if (wasLoggedIn) {
+      // 로그아웃
+      console.log("[auth] 로그아웃");
+      teardownSync();
     }
   });
 
@@ -3013,6 +3036,219 @@ function initAuth() {
 
   // 5) 헤더 영역 노출
   document.getElementById("auth-area").style.display = "";
+}
+
+// ============ 클라우드 동기화 (Firestore) ============
+const SYNC_KEYS = {
+  lastSyncedAt: "workout.lastSyncedAt",
+};
+const FIRESTORE_DOC_BYTES_LIMIT = 900_000; // 1MB 의 90% — 안전 여유
+
+let firebaseDb = null;
+let syncDebounceTimer = null;
+let pushInProgress = false;
+let pullInProgress = false;
+let initialPullDone = false;
+
+function getLastSyncedAt() { return parseInt(localStorage.getItem(SYNC_KEYS.lastSyncedAt) || "0", 10) || 0; }
+function setLastSyncedAt(ts) { localStorage.setItem(SYNC_KEYS.lastSyncedAt, String(ts)); }
+
+function getDeviceLabel() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad/.test(ua))   return "iOS";
+  if (/Android/.test(ua))       return "Android";
+  if (/Mac OS/.test(ua))        return "Mac";
+  if (/Windows/.test(ua))       return "Windows";
+  if (/Linux/.test(ua))         return "Linux";
+  return "Browser";
+}
+
+function buildSyncPayload() {
+  return {
+    schema: BACKUP_SCHEMA,
+    exercises:     exercises,
+    routines:      routines,
+    seedOverrides: seedOverrides,
+    palette:       localStorage.getItem(PALETTE_KEY) || null,
+    profile:       loadProfile(),
+  };
+}
+
+function applyCloudData(cloud) {
+  exercises     = Array.isArray(cloud.exercises)     ? cloud.exercises     : [];
+  routines      = Array.isArray(cloud.routines)      ? cloud.routines      : [];
+  seedOverrides = (cloud.seedOverrides && typeof cloud.seedOverrides === "object") ? cloud.seedOverrides : {};
+
+  // localStorage 동기 (sync hook 비활성 상태에서 직접 setItem)
+  localStorage.setItem(KEYS.exercises,     JSON.stringify(exercises));
+  localStorage.setItem(KEYS.routines,      JSON.stringify(routines));
+  localStorage.setItem(KEYS.seedOverrides, JSON.stringify(seedOverrides));
+
+  if (cloud.palette && PALETTES[cloud.palette]) {
+    applyPalette(cloud.palette, { skipSync: true });
+    const sel = document.getElementById("palette-select");
+    if (sel) sel.value = cloud.palette;
+  }
+
+  if (cloud.profile) {
+    // sync hook 우회: 직접 setItem
+    localStorage.setItem(PROFILE_KEY, JSON.stringify({
+      name: cloud.profile.name || "",
+      memo: cloud.profile.memo || "",
+    }));
+    const nameEl = document.getElementById("profile-name");
+    const memoEl = document.getElementById("profile-memo");
+    if (nameEl) nameEl.value = cloud.profile.name || "";
+    if (memoEl) memoEl.value = cloud.profile.memo || "";
+  }
+
+  // 시드 _ko_user 재적용
+  if (typeof seedById !== "undefined" && seedById) {
+    seedById.forEach((s) => { delete s._ko_user; });
+    for (const id of Object.keys(seedOverrides)) {
+      const s = seedById.get(id);
+      if (s) s._ko_user = seedOverrides[id];
+    }
+  }
+
+  // UI 갱신
+  if (typeof renderLibrary       === "function") renderLibrary();
+  if (typeof renderRoutineItems  === "function") renderRoutineItems();
+  if (typeof renderHistory       === "function") renderHistory();
+  if (typeof updateDataStats     === "function") updateDataStats();
+}
+
+async function pullOnLogin() {
+  if (!firebaseDb || !firebaseUser) return;
+  if (pullInProgress) return;
+  pullInProgress = true;
+  setAuthDot("syncing", "동기화 중…");
+
+  try {
+    const docRef = doc(firebaseDb, "userData", firebaseUser.uid);
+    const snap = await getDoc(docRef);
+
+    const hasLocalData = exercises.length > 0 || routines.length > 0
+                       || Object.keys(seedOverrides).length > 0;
+
+    if (!snap.exists()) {
+      // 클라우드 첫 사용 — 로컬을 클라우드로 push
+      console.log("[sync] 클라우드 비어있음 → 첫 push");
+      await pushNow();
+      initialPullDone = true;
+      return;
+    }
+
+    const cloud = snap.data();
+    const cloudUpdated = cloud.updatedAt && cloud.updatedAt.toMillis ? cloud.updatedAt.toMillis() : 0;
+    const hasCloudData = (cloud.exercises && cloud.exercises.length > 0)
+                       || (cloud.routines && cloud.routines.length > 0)
+                       || (cloud.seedOverrides && Object.keys(cloud.seedOverrides).length > 0);
+
+    if (!hasCloudData && hasLocalData) {
+      console.log("[sync] 클라우드 비어있고 로컬 있음 → push");
+      await pushNow();
+      initialPullDone = true;
+      return;
+    }
+
+    if (hasCloudData && !hasLocalData) {
+      console.log("[sync] 로컬 비어있고 클라우드 있음 → pull");
+      applyCloudData(cloud);
+      setLastSyncedAt(cloudUpdated || Date.now());
+      setAuthDot("ok", "동기화됨");
+      initialPullDone = true;
+      return;
+    }
+
+    if (hasCloudData && hasLocalData) {
+      const lastSynced = getLastSyncedAt();
+      if (cloudUpdated > 0 && cloudUpdated > lastSynced + 1000) {
+        // 클라우드가 더 신선 — 사용자에게 선택 요청
+        const cloudTime = new Date(cloudUpdated).toLocaleString();
+        const choice = confirm(
+          `클라우드(${cloud.deviceLabel || "다른 기기"}, ${cloudTime})에 더 최근 데이터가 있습니다.\n\n` +
+          `[확인] 클라우드 데이터를 받아 로컬을 덮어씁니다.\n` +
+          `[취소] 로컬 데이터로 클라우드를 덮어씁니다.`
+        );
+        if (choice) {
+          applyCloudData(cloud);
+          setLastSyncedAt(cloudUpdated);
+          setAuthDot("ok", "동기화됨");
+        } else {
+          await pushNow();
+        }
+        initialPullDone = true;
+        return;
+      }
+      // 동기 — 무변경
+      setLastSyncedAt(cloudUpdated || Date.now());
+      setAuthDot("ok", "동기화됨");
+      initialPullDone = true;
+      return;
+    }
+
+    // 둘 다 비어있음
+    setAuthDot("ok", "동기화됨 (빈 상태)");
+    initialPullDone = true;
+  } catch (err) {
+    console.error("[sync] pull 실패", err);
+    setAuthDot("error", "동기화 오류: " + (err.message || err));
+  } finally {
+    pullInProgress = false;
+  }
+}
+
+function schedulePushIfReady() {
+  if (!firebaseUser || !firebaseDb || !initialPullDone) return;
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  setAuthDot("syncing", "변경 감지 — 2초 후 동기화");
+  syncDebounceTimer = setTimeout(pushNow, 2000);
+}
+
+async function pushNow() {
+  if (!firebaseUser || !firebaseDb) return;
+  if (pushInProgress) return;
+  pushInProgress = true;
+  setAuthDot("syncing", "클라우드 저장 중…");
+
+  try {
+    const payload = buildSyncPayload();
+
+    // 크기 사전 점검
+    const jsonStr = JSON.stringify(payload);
+    const bytes = new TextEncoder().encode(jsonStr).length;
+    if (bytes > FIRESTORE_DOC_BYTES_LIMIT) {
+      throw new Error(`데이터가 ${(bytes/1024).toFixed(0)}KB 로 1MB Firestore 한도를 초과합니다. 이미지가 많은 동작을 줄여 주세요.`);
+    }
+
+    const docRef = doc(firebaseDb, "userData", firebaseUser.uid);
+    await setDoc(docRef, {
+      ...payload,
+      updatedAt:   serverTimestamp(),
+      deviceLabel: getDeviceLabel(),
+      bytes:       bytes,
+    });
+
+    setLastSyncedAt(Date.now());
+    setAuthDot("ok", `동기화됨 · ${new Date().toLocaleTimeString()} (${(bytes/1024).toFixed(0)}KB)`);
+    console.log(`[sync] push 완료 (${(bytes/1024).toFixed(0)}KB)`);
+  } catch (err) {
+    console.error("[sync] push 실패", err);
+    setAuthDot("error", "동기화 오류: " + (err.message || err));
+    if ((err.message || "").includes("한도")) {
+      alert(err.message);
+    }
+  } finally {
+    pushInProgress = false;
+  }
+}
+
+function teardownSync() {
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = null;
+  initialPullDone = false;
+  setLastSyncedAt(0);
 }
 
 // ============ Init ============
