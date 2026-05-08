@@ -1,0 +1,1717 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>운동 기록기 — 디자인 감사 / Enhancement Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        oklch(97.5% 0.005 90);
+    --bg-soft:   oklch(95%   0.008 88);
+    --bg-card:   oklch(99%   0.003 90);
+    --ink:       oklch(18%   0.012 60);
+    --ink-2:     oklch(34%   0.012 60);
+    --ink-3:     oklch(52%   0.010 60);
+    --ink-4:     oklch(72%   0.008 60);
+    --line:      oklch(88%   0.006 80);
+    --line-2:    oklch(82%   0.008 80);
+    --accent:    oklch(56%   0.14  150);
+    --accent-2:  oklch(94%   0.04  150);
+    --warn:      oklch(58%   0.15  45);
+    --warn-2:    oklch(95%   0.04  50);
+    --info:      oklch(54%   0.12  255);
+    --info-2:    oklch(94%   0.03  255);
+    --max: 1240px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    font-feature-settings:"ss01","ss02","cv11";
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    line-height:1.55;
+  }
+  .mono{font-family:"JetBrains Mono", ui-monospace, Menlo, monospace; font-feature-settings:"calt","liga";}
+  .serif{font-family:"Fraunces", Georgia, serif; font-optical-sizing:auto;}
+
+  /* ───────── layout ───────── */
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 48px;}
+  section{padding:96px 0; border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+
+  .eyebrow{
+    font-family:"JetBrains Mono", monospace;
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--ink-3); display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{
+    content:""; display:inline-block; width:24px; height:1px; background:var(--ink-3);
+  }
+  h1,h2,h3,h4{margin:0; font-weight:600; letter-spacing:-0.01em;}
+  h1{font-size:64px; line-height:1.02; letter-spacing:-0.025em;}
+  h2{font-size:42px; line-height:1.08; letter-spacing:-0.02em; margin-top:24px;}
+  h3{font-size:22px; line-height:1.25;}
+  h4{font-size:14px; line-height:1.35; letter-spacing:0.01em;}
+  p{margin:0; color:var(--ink-2);}
+  small{color:var(--ink-3); font-size:12px;}
+
+  /* ───────── COVER ───────── */
+  .cover{
+    padding:64px 0 0;
+    border-top:none;
+  }
+  .cover-grid{
+    display:grid; grid-template-columns: 1.4fr 1fr; gap:64px; align-items:end;
+    padding:32px 0 56px;
+  }
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:20px 48px; border-bottom:1px solid var(--line);
+    font-size:12px; color:var(--ink-3);
+  }
+  .topbar .mark{display:flex; align-items:center; gap:10px; color:var(--ink); font-weight:600; letter-spacing:-0.01em;}
+  .mark-dot{
+    width:14px; height:14px; border-radius:3px;
+    background:
+      linear-gradient(135deg, var(--accent) 0 50%, var(--ink) 50% 100%);
+  }
+  .cover h1 .accent{
+    background:linear-gradient(180deg, transparent 62%, var(--accent-2) 62% 92%, transparent 92%);
+    padding:0 4px;
+  }
+  .cover-meta{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:18px 28px;
+    border-top:1px solid var(--line); padding-top:22px;
+  }
+  .cover-meta dt{font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-3); margin-bottom:4px; font-family:"JetBrains Mono", monospace;}
+  .cover-meta dd{margin:0; color:var(--ink); font-size:14px; line-height:1.5;}
+
+  .lede{font-size:19px; line-height:1.6; color:var(--ink-2); max-width:62ch;}
+  .lede strong{color:var(--ink); font-weight:600;}
+
+  /* ───────── EXEC SUMMARY ───────── */
+  .summary{
+    display:grid; grid-template-columns: 280px 1fr; gap:64px;
+  }
+  .findings{
+    display:grid; gap:14px;
+  }
+  .finding{
+    display:grid; grid-template-columns: 56px 1fr 110px; gap:18px;
+    align-items:start;
+    padding:20px 22px;
+    background:var(--bg-card); border:1px solid var(--line);
+    border-radius:10px;
+    position:relative;
+  }
+  .finding .num{
+    font-family:"JetBrains Mono", monospace; font-size:13px; color:var(--ink-3); padding-top:4px;
+  }
+  .finding h3{font-size:17px; font-weight:600; margin-bottom:4px;}
+  .finding p{font-size:14px;}
+  .severity{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+    padding:5px 9px; border-radius:999px; white-space:nowrap;
+    align-self:start;
+  }
+  .sev-high{background:var(--warn-2); color:var(--warn);}
+  .sev-mid{background:#fff5dc; color:#8a6300;}
+  .sev-low{background:var(--info-2); color:var(--info);}
+  .sev-dot{width:6px; height:6px; border-radius:50%; background:currentColor;}
+
+  /* ───────── DIAGNOSIS ───────── */
+  .diag{
+    display:grid; grid-template-columns: 1fr 1fr; gap:48px;
+  }
+  .diag-col h3{
+    display:flex; align-items:center; gap:10px; margin-bottom:18px;
+    padding-bottom:14px; border-bottom:1px solid var(--line);
+  }
+  .pill{
+    font-family:"JetBrains Mono", monospace;
+    font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    padding:4px 9px; border-radius:4px;
+  }
+  .pill.ok{background:var(--accent-2); color:var(--accent);}
+  .pill.bad{background:var(--warn-2); color:var(--warn);}
+  .crit{
+    display:grid; grid-template-columns:auto 1fr; gap:14px;
+    padding:14px 0; border-bottom:1px dashed var(--line);
+    font-size:14px;
+  }
+  .crit:last-child{border-bottom:none;}
+  .crit .tag{
+    font-family:"JetBrains Mono", monospace; font-size:10px;
+    letter-spacing:0.12em; color:var(--ink-3); padding-top:3px;
+    width:84px; flex-shrink:0;
+  }
+  .crit b{color:var(--ink); font-weight:600; display:block; margin-bottom:2px;}
+  .crit span{color:var(--ink-2);}
+
+  .scorecard{
+    margin-top:48px; padding:28px 32px; background:var(--bg-card);
+    border:1px solid var(--line); border-radius:12px;
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:32px;
+  }
+  .score .label{font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:10px;}
+  .score .val{font-family:"Fraunces", serif; font-size:42px; line-height:1; letter-spacing:-0.02em; color:var(--ink); margin-bottom:6px;}
+  .score .val sup{font-size:14px; color:var(--ink-3); font-family:"JetBrains Mono", monospace; vertical-align:top; margin-left:4px;}
+  .bar{height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:8px;}
+  .bar > i{display:block; height:100%; background:var(--ink);}
+  .score .note{font-size:12px; color:var(--ink-3); margin-top:8px; line-height:1.45;}
+
+  /* ───────── ENHANCEMENT AREAS ───────── */
+  .area{
+    display:grid;
+    grid-template-columns: 280px 1fr;
+    gap:64px;
+    padding:48px 0;
+    border-top:1px dashed var(--line);
+  }
+  .area:first-of-type{border-top:none; padding-top:24px;}
+  .area-side .num{
+    font-family:"Fraunces", serif; font-size:80px; line-height:0.9; letter-spacing:-0.04em;
+    color:var(--ink); display:block;
+  }
+  .area-side .num em{font-style:normal; color:var(--accent);}
+  .area-side .tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:18px;}
+  .tag-chip{
+    font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.08em;
+    padding:4px 9px; border:1px solid var(--line-2); border-radius:4px;
+    color:var(--ink-2); background:var(--bg-card);
+  }
+  .area-side .imp{
+    margin-top:22px; padding-top:18px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--ink-3); display:flex; flex-direction:column; gap:6px;
+  }
+  .area-side .imp b{color:var(--ink); font-family:"JetBrains Mono", monospace; font-weight:500; font-size:11px; letter-spacing:0.1em;}
+
+  .area-body h3{font-size:24px; margin-bottom:6px;}
+  .area-body .sub{font-size:14px; color:var(--ink-3); margin-bottom:24px;}
+  .compare{
+    display:grid; grid-template-columns:1fr 1fr; gap:18px;
+    margin-top:18px;
+  }
+  .pane{
+    background:var(--bg-card); border:1px solid var(--line); border-radius:10px;
+    padding:18px 20px; min-height:160px;
+  }
+  .pane.now{background:repeating-linear-gradient(135deg, var(--bg-soft) 0 6px, transparent 6px 14px); border-style:dashed;}
+  .pane h4{font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-3); margin-bottom:12px; font-family:"JetBrains Mono", monospace;}
+  .pane.now h4::before{content:"AS-IS · "; color:var(--warn);}
+  .pane.next h4::before{content:"TO-BE · "; color:var(--accent);}
+  .pane ul{margin:0; padding:0; list-style:none;}
+  .pane li{font-size:13px; color:var(--ink-2); padding:6px 0; border-bottom:1px dashed var(--line); position:relative; padding-left:18px;}
+  .pane li:last-child{border-bottom:none;}
+  .pane li::before{content:"·"; position:absolute; left:6px; top:5px; color:var(--ink-4); font-size:18px; line-height:1;}
+  .pane.next li::before{content:"+"; color:var(--accent); font-family:"JetBrains Mono", monospace; font-size:12px; top:8px;}
+  .pane.now li::before{content:"–"; color:var(--warn); font-family:"JetBrains Mono", monospace; font-size:12px; top:8px;}
+
+  .codeblock{
+    margin-top:14px;
+    background:#1a1814; color:#e8e3d9;
+    border-radius:8px; padding:16px 18px; overflow:auto;
+    font-family:"JetBrains Mono", monospace; font-size:12px; line-height:1.65;
+  }
+  .codeblock .c{color:#7a766c;}
+  .codeblock .k{color:#9ec6a3;}
+  .codeblock .s{color:#e8b773;}
+  .codeblock .n{color:#c8a6e8;}
+  .codeblock .add{color:#9ec6a3;}
+  .codeblock .rem{color:#e08a8a;}
+
+  /* mini mockups */
+  .mock{
+    margin-top:18px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+  }
+  .mock-title{font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin-bottom:14px;}
+
+  /* set-row mockup */
+  .setrow{
+    display:grid; grid-template-columns: 28px 56px 1fr auto auto auto auto auto; gap:10px;
+    align-items:center; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+    margin-bottom:8px; font-size:13px; background:var(--bg-card);
+  }
+  .setrow .idx{font-family:"JetBrains Mono", monospace; color:var(--ink-3); font-size:11px;}
+  .setrow .thumb{
+    width:48px; height:48px; border-radius:6px; background:
+      repeating-linear-gradient(45deg, var(--bg-soft) 0 6px, var(--bg) 6px 12px);
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    color:var(--ink-4); font-family:"JetBrains Mono", monospace; font-size:9px;
+  }
+  .setrow .nm{font-weight:600;}
+  .setrow .mut{color:var(--ink-3); font-size:11px; font-family:"JetBrains Mono", monospace;}
+  .setrow .chip{
+    font-family:"JetBrains Mono", monospace; font-size:11px; padding:4px 8px;
+    border:1px solid var(--line-2); border-radius:5px; color:var(--ink-2);
+    background:#fff;
+  }
+  .setrow .chip b{color:var(--ink); font-weight:600;}
+  .setrow .chip.pr{background:var(--accent-2); border-color:var(--accent); color:var(--accent);}
+
+  /* week heatmap */
+  .heat{display:grid; grid-template-columns:repeat(13, 1fr); gap:4px; margin-top:6px;}
+  .heat span{aspect-ratio:1; border-radius:2px; background:var(--bg-soft);}
+  .heat span[data-l="1"]{background:oklch(90% 0.04 150);}
+  .heat span[data-l="2"]{background:oklch(78% 0.09 150);}
+  .heat span[data-l="3"]{background:oklch(64% 0.13 150);}
+  .heat span[data-l="4"]{background:oklch(50% 0.14 150);}
+  .heat-legend{display:flex; align-items:center; gap:8px; margin-top:10px; font-family:"JetBrains Mono", monospace; font-size:10px; color:var(--ink-3);}
+  .heat-legend i{display:inline-block; width:10px; height:10px; border-radius:2px;}
+
+  /* timer mock */
+  .timer{
+    display:flex; align-items:center; gap:18px;
+    padding:18px 22px; background:#15110d; color:#fbeed5; border-radius:12px;
+  }
+  .timer .ring{
+    width:64px; height:64px; border-radius:50%;
+    background:conic-gradient(var(--accent) 0 65%, #2c2620 65% 100%);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .timer .ring::after{
+    content:""; position:absolute; inset:6px; background:#15110d; border-radius:50%;
+  }
+  .timer .ring span{position:relative; z-index:1; font-family:"JetBrains Mono", monospace; font-size:13px; font-weight:600;}
+  .timer .lbl{font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.18em; color:#a59880; text-transform:uppercase;}
+  .timer .big{font-family:"Fraunces", serif; font-size:30px; letter-spacing:-0.02em; line-height:1; margin-top:4px;}
+  .timer .next{margin-left:auto; text-align:right;}
+  .timer .next .lbl{color:#a59880;}
+  .timer .next .nm{font-size:14px; font-weight:600; margin-top:2px;}
+
+  /* search mock */
+  .search-mock{padding:0; overflow:hidden;}
+  .search-bar{display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); background:var(--bg-soft);}
+  .search-bar input{
+    flex:1; border:none; background:transparent; outline:none;
+    font-size:14px; color:var(--ink); font-family:inherit;
+  }
+  .search-icon{
+    width:18px; height:18px; border:1.5px solid var(--ink-3); border-radius:50%;
+    position:relative; flex-shrink:0;
+  }
+  .search-icon::after{
+    content:""; position:absolute; right:-5px; bottom:-5px;
+    width:8px; height:1.5px; background:var(--ink-3); transform:rotate(45deg);
+  }
+  .filters{display:flex; gap:6px; padding:10px 18px; flex-wrap:wrap; border-bottom:1px solid var(--line);}
+  .filt{
+    font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.06em;
+    padding:5px 10px; border:1px solid var(--line-2); border-radius:999px;
+    color:var(--ink-2); background:#fff;
+  }
+  .filt.on{background:var(--ink); color:var(--bg); border-color:var(--ink);}
+  .res{display:grid; grid-template-columns: 56px 1fr auto; gap:14px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); font-size:13px;}
+  .res:last-child{border-bottom:none;}
+  .res .thumb{width:48px; height:48px;}
+  .res .nm{font-weight:600;}
+  .res .meta{font-size:11px; color:var(--ink-3); font-family:"JetBrains Mono", monospace;}
+  .res .badge{
+    font-family:"JetBrains Mono", monospace; font-size:10px;
+    padding:3px 7px; border-radius:4px; letter-spacing:0.08em;
+  }
+  .badge-local{background:var(--info-2); color:var(--info);}
+  .badge-seed{background:var(--bg-soft); color:var(--ink-3); border:1px solid var(--line);}
+  .badge-recent{background:var(--accent-2); color:var(--accent);}
+
+  /* output sheet variants */
+  .sheets{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px;}
+  .sheet{
+    background:#fff; border:1px solid var(--line); border-radius:6px;
+    padding:14px 12px; aspect-ratio:0.71;
+    display:flex; flex-direction:column; gap:6px;
+    box-shadow: 0 1px 0 var(--line);
+  }
+  .sheet .sh-h{display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:6px; border-bottom:1px solid var(--ink); margin-bottom:4px;}
+  .sheet .sh-t{font-family:"Fraunces", serif; font-size:13px; font-weight:600; line-height:1.1;}
+  .sheet .sh-d{font-family:"JetBrains Mono", monospace; font-size:8px; color:var(--ink-3);}
+  .sheet .sh-r{display:grid; grid-template-columns: 14px 18px 1fr 22px; gap:4px; font-size:8px; align-items:center; padding:3px 0; border-bottom:1px dashed var(--line);}
+  .sheet .sh-r .ix{font-family:"JetBrains Mono", monospace; color:var(--ink-3);}
+  .sheet .sh-r .img{height:14px; background:var(--bg-soft); border:1px solid var(--line); border-radius:1px;}
+  .sheet .sh-r .nm{font-size:8px; color:var(--ink); font-weight:500;}
+  .sheet .sh-r .x{font-family:"JetBrains Mono", monospace; color:var(--ink-2); text-align:right; font-size:8px;}
+  .sheet-cap{font-family:"JetBrains Mono", monospace; font-size:10px; color:var(--ink-3); margin-top:8px; text-align:center; letter-spacing:0.08em;}
+
+  /* sheet variants */
+  .sheet.story{aspect-ratio:0.5625; background:linear-gradient(160deg, oklch(22% 0.02 60), oklch(14% 0.01 60)); color:#fff8e7; border:none;}
+  .sheet.story .sh-h{border-color:rgba(255,255,255,0.2);}
+  .sheet.story .sh-t{color:#fff8e7;}
+  .sheet.story .sh-d{color:#a59880;}
+  .sheet.story .sh-r{border-color:rgba(255,255,255,0.1);}
+  .sheet.story .sh-r .nm{color:#fff8e7;}
+  .sheet.story .sh-r .img{background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.15);}
+  .sheet.story .sh-r .x{color:#d9c7a3;}
+
+  .sheet.card{aspect-ratio:1.4; background:var(--ink); color:var(--bg); border:none; padding:18px;}
+  .sheet.card .sh-t{color:var(--bg); font-size:18px;}
+  .sheet.card .qr{width:42px; height:42px; background:
+    conic-gradient(from 0deg, var(--bg) 25%, transparent 25% 50%, var(--bg) 50% 75%, transparent 75%);
+    background-size:6px 6px; border-radius:3px; align-self:flex-end;
+  }
+
+  /* color swatches */
+  .palette{
+    display:grid; grid-template-columns:repeat(8,1fr); gap:10px;
+    margin-top:14px;
+  }
+  .sw{
+    border-radius:8px; overflow:hidden; border:1px solid var(--line);
+    background:#fff;
+  }
+  .sw .chip-bg{
+    height:72px; display:flex; align-items:flex-end; justify-content:flex-start;
+    padding:8px; color:#fff;
+    font-family:"JetBrains Mono", monospace; font-size:9px; letter-spacing:0.06em;
+  }
+  .sw .meta{padding:8px 10px;}
+  .sw .role{font-size:11px; color:var(--ink); font-weight:600; line-height:1.2;}
+  .sw .tok{font-family:"JetBrains Mono", monospace; font-size:9px; color:var(--ink-3); letter-spacing:0.04em; margin-top:2px;}
+
+  .palette.dark .sw{background:#1a1814; border-color:#2a2520;}
+  .palette.dark .role{color:#f4ecd9;}
+  .palette.dark .tok{color:#a59880;}
+
+  /* type specimen */
+  .specimen{
+    display:grid; grid-template-columns:160px 1fr; gap:0;
+    border-top:1px solid var(--line);
+    padding:18px 0;
+  }
+  .specimen .meta{font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.12em; color:var(--ink-3);}
+  .specimen .meta b{display:block; color:var(--ink); font-size:11px; margin-bottom:4px;}
+  .specimen .sample{color:var(--ink); font-weight:500;}
+
+  /* IA mockup phones */
+  .phones{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:18px;}
+  .phone{
+    background:#1a1814; padding:14px; border-radius:32px;
+    aspect-ratio:0.5; max-width:280px; margin:0 auto;
+    box-shadow:0 30px 60px -30px rgba(0,0,0,0.25);
+  }
+  .phone-screen{
+    background:var(--bg); border-radius:20px; height:100%;
+    display:flex; flex-direction:column; overflow:hidden;
+    position:relative;
+  }
+  .phone-status{display:flex; justify-content:space-between; padding:8px 14px 4px; font-family:"JetBrains Mono", monospace; font-size:9px; color:var(--ink-3);}
+  .phone-tabs{display:flex; border-bottom:1px solid var(--line); background:var(--bg-soft);}
+  .phone-tab{flex:1; text-align:center; padding:10px 4px; font-size:10px; color:var(--ink-3); border-bottom:2px solid transparent;}
+  .phone-tab.on{color:var(--ink); border-bottom-color:var(--ink); background:var(--bg-card);}
+  .phone-body{flex:1; padding:12px; overflow:hidden;}
+  .phone-body h5{font-size:13px; margin:0 0 8px; font-weight:600;}
+  .phone-body .lab{font-family:"JetBrains Mono", monospace; font-size:8px; color:var(--ink-3); letter-spacing:0.12em; text-transform:uppercase; margin:10px 0 4px;}
+  .phone-card{
+    background:var(--bg-card); border:1px solid var(--line); border-radius:6px;
+    padding:8px; font-size:9px; margin-bottom:4px; line-height:1.3;
+  }
+  .phone-card b{font-size:10px;}
+  .phone-bottom{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    border-top:1px solid var(--line); background:var(--bg-card);
+    padding:6px 0 10px;
+  }
+  .phone-bottom span{
+    text-align:center; font-size:9px; color:var(--ink-3);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .phone-bottom span i{
+    width:16px; height:16px; border-radius:4px; background:var(--ink-4);
+    display:inline-block;
+  }
+  .phone-bottom span.on{color:var(--ink);}
+  .phone-bottom span.on i{background:var(--ink);}
+
+  .phone-cta{
+    background:var(--ink); color:#fff; border-radius:8px;
+    padding:10px 12px; font-size:11px; font-weight:600;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:10px;
+  }
+  .phone-cta span.mono{font-family:"JetBrains Mono", monospace; font-size:9px; opacity:0.6;}
+
+  /* density grammar */
+  .grammar{display:grid; gap:10px; margin-top:16px;}
+  .gx{
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; display:grid; align-items:center; gap:14px;
+  }
+  .gx .sz{
+    font-family:"JetBrains Mono", monospace; font-size:9px; letter-spacing:0.12em;
+    color:var(--ink-3); padding:3px 7px; background:var(--bg-soft); border-radius:4px;
+    justify-self:start;
+  }
+  .gx-compact{grid-template-columns:auto 32px 1fr auto;}
+  .gx-compact .th{width:24px; height:24px;}
+  .gx-default{grid-template-columns:auto 56px 1fr auto auto;}
+  .gx-expanded{grid-template-columns:auto 80px 1fr; padding:18px 20px;}
+  .gx .th{
+    width:48px; height:48px; border-radius:6px;
+    background:repeating-linear-gradient(45deg, var(--bg-soft) 0 6px, var(--bg) 6px 12px);
+    border:1px solid var(--line);
+  }
+  .gx-expanded .th{width:80px; height:80px;}
+  .gx .nm{font-weight:600; font-size:14px;}
+  .gx-compact .nm{font-size:13px;}
+  .gx .mt{font-family:"JetBrains Mono", monospace; font-size:11px; color:var(--ink-3); margin-top:2px;}
+  .gx .pill-row{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  .gx .p{font-family:"JetBrains Mono", monospace; font-size:10px; padding:3px 8px; background:var(--bg-soft); border-radius:4px; color:var(--ink-2);}
+  .gx .p.act{background:var(--ink); color:#fff;}
+
+  /* token table */
+  .tokens{
+    margin-top:16px; border:1px solid var(--line); border-radius:8px;
+    overflow:hidden; background:#fff;
+  }
+  .tokens .row{
+    display:grid; grid-template-columns: 130px 1fr 80px;
+    padding:10px 14px; border-bottom:1px solid var(--line);
+    font-size:13px; align-items:center;
+  }
+  .tokens .row:last-child{border-bottom:none;}
+  .tokens .row.hd{background:var(--bg-soft); font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.12em; color:var(--ink-3); text-transform:uppercase;}
+  .tokens .row .name{font-family:"JetBrains Mono", monospace; font-size:11px; color:var(--ink);}
+  .tokens .row .val{font-family:"JetBrains Mono", monospace; font-size:11px; color:var(--ink-2); text-align:right;}
+
+  /* priority matrix */
+  .matrix{
+    position:relative; aspect-ratio:1.3; background:var(--bg-card);
+    border:1px solid var(--line); border-radius:14px; padding:32px;
+    margin-top:32px;
+  }
+  .matrix::before, .matrix::after{
+    content:""; position:absolute; background:var(--line-2);
+  }
+  .matrix::before{left:50%; top:32px; bottom:32px; width:1px;}
+  .matrix::after{top:50%; left:32px; right:32px; height:1px;}
+  .ax{position:absolute; font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-3);}
+  .ax-y-top{top:14px; left:32px;}
+  .ax-y-bot{bottom:14px; left:32px;}
+  .ax-x-l{bottom:32px; left:14px; transform:rotate(-90deg); transform-origin:left bottom;}
+  .ax-x-r{top:32px; right:14px; transform:rotate(-90deg); transform-origin:right top;}
+  .quad-label{
+    position:absolute; font-family:"JetBrains Mono", monospace; font-size:10px; color:var(--ink-4); letter-spacing:0.12em;
+  }
+  .item{
+    position:absolute; transform:translate(-50%,-50%);
+    background:#fff; border:1px solid var(--ink); border-radius:6px;
+    padding:8px 10px; min-width:130px;
+    font-size:12px; line-height:1.3;
+    box-shadow:0 1px 0 var(--ink);
+  }
+  .item .n{font-family:"JetBrains Mono", monospace; font-size:9px; color:var(--ink-3); display:block; margin-bottom:2px; letter-spacing:0.1em;}
+  .item.hot{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .item.hot .n{color:#a59880;}
+
+  /* roadmap */
+  .roadmap{
+    margin-top:24px; display:grid; grid-template-columns:repeat(4,1fr); gap:0;
+    border-radius:12px; overflow:hidden; border:1px solid var(--line);
+  }
+  .phase{
+    padding:24px; background:var(--bg-card); border-right:1px solid var(--line);
+    position:relative;
+  }
+  .phase:last-child{border-right:none;}
+  .phase .ph-n{font-family:"JetBrains Mono", monospace; font-size:10px; letter-spacing:0.16em; color:var(--ink-3); text-transform:uppercase;}
+  .phase .ph-t{font-family:"Fraunces", serif; font-size:24px; line-height:1.1; margin:6px 0 4px; letter-spacing:-0.02em;}
+  .phase .ph-d{font-family:"JetBrains Mono", monospace; font-size:11px; color:var(--ink-3); margin-bottom:14px;}
+  .phase ul{margin:0; padding:0; list-style:none;}
+  .phase li{font-size:13px; color:var(--ink-2); padding:6px 0; border-top:1px dashed var(--line); padding-left:16px; position:relative;}
+  .phase li:first-child{border-top:none;}
+  .phase li::before{content:"›"; position:absolute; left:0; color:var(--accent); font-family:"JetBrains Mono", monospace; top:6px;}
+  .phase.p1{background:linear-gradient(180deg, var(--accent-2) 0%, var(--bg-card) 60%);}
+
+  /* footer */
+  footer{padding:64px 0 96px; border-top:1px solid var(--line); color:var(--ink-3); font-size:12px;}
+  footer .ft-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:48px;}
+  footer h4{color:var(--ink); margin-bottom:10px; font-size:12px; letter-spacing:0.12em; text-transform:uppercase; font-family:"JetBrains Mono", monospace;}
+  footer p{font-size:13px;}
+
+  /* small utilities */
+  .row{display:flex; gap:14px; align-items:center;}
+  .grow{flex:1;}
+
+  /* responsive: keep readable on narrow */
+  @media (max-width: 980px){
+    .wrap{padding:0 28px;}
+    h1{font-size:44px;}
+    h2{font-size:30px;}
+    .cover-grid, .summary, .area, .diag{grid-template-columns:1fr; gap:32px;}
+    .scorecard{grid-template-columns:repeat(2,1fr);}
+    .compare, .sheets{grid-template-columns:1fr;}
+    .roadmap{grid-template-columns:1fr;}
+    .phase{border-right:none; border-bottom:1px solid var(--line);}
+  }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="mark"><span class="mark-dot"></span><span>workout / design audit</span></div>
+  <div class="mono">v1.0 · 2026.05.08</div>
+</div>
+
+<!-- ─────────────────────────  COVER  ───────────────────────── -->
+<section class="cover" data-screen-label="01 Cover">
+  <div class="wrap">
+    <div class="eyebrow">Enhancement Analysis · 운동 세션 기록기</div>
+    <div class="cover-grid">
+      <div>
+        <h1 class="serif">설계서는 견고하다.<br/>다음 단계는 <span class="accent">기록을 동기로 바꾸는 것</span>.</h1>
+      </div>
+      <div>
+        <p class="lede">
+          현재 DESIGN.md 는 <strong>단일 HTML + localStorage</strong> 라는 좁은 제약을 깔끔하게 해결한 v1 사양이다.
+          본 문서는 그 기반 위에서 <strong>데이터 한계 · 입력 모델 · 진척도 · 검색 · 출력 · 모바일</strong>
+          여섯 영역의 고도화 지점을 진단하고 우선순위로 정리한다.
+        </p>
+        <dl class="cover-meta" style="margin-top:32px;">
+          <div><dt>SCOPE</dt><dd>DESIGN.md §1–§9</dd></div>
+          <div><dt>METHOD</dt><dd>Heuristic + data-model review</dd></div>
+          <div><dt>FOCUS</dt><dd>v1 → v2 incremental</dd></div>
+          <div><dt>OUTCOME</dt><dd>9 areas · 25 proposals · 4 phases</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  EXEC SUMMARY  ───────────────────────── -->
+<section data-screen-label="02 Executive Summary">
+  <div class="wrap">
+    <div class="summary">
+      <div>
+        <div class="eyebrow">§ 01 — Executive Summary</div>
+        <h2 class="serif">5개의 결정적 발견</h2>
+        <p style="margin-top:14px; font-size:14px; max-width:32ch;">
+          심각도 순서가 아닌 <span class="mono">v1 사양에서 가장 먼저 흔들리는 가정</span>부터 정렬했다.
+        </p>
+      </div>
+
+      <div class="findings">
+        <div class="finding">
+          <div class="num">F·01</div>
+          <div>
+            <h3>localStorage 5MB 가정은 90일 안에 깨진다</h3>
+            <p>이미지 base64는 33% 오버헤드. 800px·JPEG 0.85로 약 60–120KB/장 → 동작 60–80개 등록 시점에 한계. 시드 캐시까지 같은 도메인에서 경쟁한다. <b class="mono">IndexedDB + Blob</b>은 v1 직후 작업이어야 한다.</p>
+          </div>
+          <span class="severity sev-high"><i class="sev-dot"></i>HIGH</span>
+        </div>
+
+        <div class="finding">
+          <div class="num">F·02</div>
+          <div>
+            <h3>「sets × reps」 만으로는 운동을 기록할 수 없다</h3>
+            <p>중량·시간·거리·RPE·세트별 변동이 빠져 있어 사용자는 결국 <span class="mono">memo</span> 필드에 자유 텍스트로 떠넘긴다. 그러면 §8 진척도·PR·검색 기반이 모두 무너진다.</p>
+          </div>
+          <span class="severity sev-high"><i class="sev-dot"></i>HIGH</span>
+        </div>
+
+        <div class="finding">
+          <div class="num">F·03</div>
+          <div>
+            <h3>저장은 있는데 「돌아볼 이유」가 없다</h3>
+            <p>history는 카드 리스트뿐. 주 단위 볼륨·연속 기록·PR 알림·근육군 밸런스가 없으면 <b>3주 차 이탈률</b>이 가장 큰 리스크가 된다. 출력(JPG)은 결과물이지 동기가 아니다.</p>
+          </div>
+          <span class="severity sev-high"><i class="sev-dot"></i>HIGH</span>
+        </div>
+
+        <div class="finding">
+          <div class="num">F·04</div>
+          <div>
+            <h3>720px 고정 시트는 모바일에서 가로 스크롤을 강제한다</h3>
+            <p>설계서가 명시한 절충(§5)이지만, 「JPG로 저장 후 본다」는 우회는 일상 사용을 매번 두 단계로 만든다. <span class="mono">반응형 시트 + 별도 export 시 1440px 렌더</span>로 분리해야 한다.</p>
+          </div>
+          <span class="severity sev-mid"><i class="sev-dot"></i>MID</span>
+        </div>
+
+        <div class="finding">
+          <div class="num">F·05</div>
+          <div>
+            <h3>1,324개 시드, 한국어 0개</h3>
+            <p>§9에 후속 과제로만 적혀있지만 실제 검색 사용성을 결정한다. 한국어 입력으로 <span class="mono">「벤치」 → bench press</span> 가 매칭되지 않으면 시드 자체가 발견되지 않는다.</p>
+          </div>
+          <span class="severity sev-mid"><i class="sev-dot"></i>MID</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  DIAGNOSIS  ───────────────────────── -->
+<section data-screen-label="03 Diagnosis">
+  <div class="wrap">
+    <div class="eyebrow">§ 02 — Current State Diagnosis</div>
+    <h2 class="serif" style="max-width:18ch;">잘 한 것과,<br/>가정이 흔들리는 곳.</h2>
+
+    <div class="diag" style="margin-top:48px;">
+      <div class="diag-col">
+        <h3><span class="pill ok">강점 · WORKS</span></h3>
+        <div class="crit">
+          <div class="tag">SCHEMA</div>
+          <div><b>v1 키 네이밍</b><span>workout.exercises.v1 / workout.routines.v1 — 마이그레이션 경로 미리 확보. §8의 migrateRoutineItems() 도 모범 사례.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">RESIZE</div>
+          <div><b>업로드 시 800px·0.85 인코딩</b><span>localStorage 한계를 미리 인지하고 입력 시점에서 정규화. 흔한 실수를 피했다.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">RESOLVE</div>
+          <div><b>resolveExercise(item) 추상화</b><span>local/seed 양쪽을 표준 표시 객체로 평탄화 — 출처가 늘어나도 렌더 코드는 안정적.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">EXPORT</div>
+          <div><b>단일 테이블 시트</b><span>동작 카드를 분리하지 않고 한 표에 묶은 결정 — 인쇄·캡처에서 시각적 통일감이 강하다.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">PIPE</div>
+          <div><b>이중 검색 풀 + 배지 구분</b><span>local과 seed를 합치되 출처를 시각화 — 데이터 신뢰도 측면에서 옳은 방향.</span></div>
+        </div>
+      </div>
+
+      <div class="diag-col">
+        <h3><span class="pill bad">가정 위험 · ASSUMPTIONS AT RISK</span></h3>
+        <div class="crit">
+          <div class="tag">CAPACITY</div>
+          <div><b>「localStorage ~5MB」 가정</b><span>iOS Safari는 도메인당 더 빡빡하고, 캐시 추출과 경쟁한다. base64 저장 자체가 비효율.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">INPUT</div>
+          <div><b>sets/reps 두 필드</b><span>중량·시간·거리·RPE·세트별 가변값이 모델에 없다. 자유 메모로 흘러간다.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">OUTPUT</div>
+          <div><b>720px 고정 + JPG only</b><span>모바일 가로 스크롤. PDF 다중 페이지·9:16 공유·인쇄 A4 배치 부재.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">ANALYTICS</div>
+          <div><b>history = 리스트</b><span>주간 볼륨·근육군 밸런스·연속 기록·PR 추적이 데이터 모델 차원에서 불가능에 가깝다.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">SEED</div>
+          <div><b>3.5MB JSON + 외부 이미지 핫링크</b><span>첫 로드 트래픽 + raw.githubusercontent.com 가용성·CORS 의존. 오프라인 시 시드 깨짐.</span></div>
+        </div>
+        <div class="crit">
+          <div class="tag">i18n</div>
+          <div><b>한국어 매핑 없음</b><span>검색이 영어 토큰에서만 동작 — 시드 1,324개의 가치를 70%+ 손실.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- scorecard -->
+    <div class="scorecard">
+      <div class="score">
+        <div class="label">DATA MODEL</div>
+        <div class="val">B<sup>+</sup></div>
+        <div class="bar"><i style="width:78%;"></i></div>
+        <div class="note">스키마 버전·마이그레이션은 모범. 입력 다양성에서 감점.</div>
+      </div>
+      <div class="score">
+        <div class="label">UX FLOW</div>
+        <div class="val">B<sup>−</sup></div>
+        <div class="bar"><i style="width:62%;"></i></div>
+        <div class="note">탭 3개로 명확. quick-log·반복 루틴·즉시 시작 부재.</div>
+      </div>
+      <div class="score">
+        <div class="label">OUTPUT</div>
+        <div class="val">C<sup>+</sup></div>
+        <div class="bar"><i style="width:48%;"></i></div>
+        <div class="note">JPG 단일 포맷, 720px 고정. 공유 시나리오 미흡.</div>
+      </div>
+      <div class="score">
+        <div class="label">RETENTION</div>
+        <div class="val">D</div>
+        <div class="bar"><i style="width:25%;"></i></div>
+        <div class="note">동기 부여 장치 없음 — 가장 큰 v2 기회 영역.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  ENHANCEMENT AREAS  ───────────────────────── -->
+<section data-screen-label="04 Enhancement Areas">
+  <div class="wrap">
+    <div class="eyebrow">§ 03 — Enhancement Areas</div>
+    <h2 class="serif" style="max-width:16ch;">9개 영역,<br/>25개 제안.</h2>
+    <p style="margin-top:14px; max-width:60ch; font-size:15px;">
+      각 영역은 <b class="mono">AS-IS / TO-BE</b> 비교 + 데이터 모델 변화 + 시각 목업으로 정리한다.
+      모든 제안은 「단일 HTML · 무서버」 제약을 유지한 채 적용 가능한 범위로 한정했다.
+    </p>
+
+    <!-- AREA 1: STORAGE -->
+    <div class="area" style="margin-top:56px;">
+      <div class="area-side">
+        <span class="num">0<em>1</em></span>
+        <h3 style="margin-top:14px;">데이터 / 스토리지</h3>
+        <div class="tags">
+          <span class="tag-chip">IndexedDB</span>
+          <span class="tag-chip">Blob</span>
+          <span class="tag-chip">Backup</span>
+          <span class="tag-chip">Schema v2</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 운영 안정성의 천장을 올린다</span>
+          <span><b>EFFORT</b> M · 1주 (마이그레이션 포함)</span>
+          <span><b>RISK</b> 구버전 유저 데이터 손실 가능 → 자동 백업 필수</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>localStorage 의 천장을 IndexedDB 로 들어올린다</h3>
+        <div class="sub">v1 의 마이그레이션 패턴(<span class="mono">migrateRoutineItems</span>)을 그대로 재사용해 v2 스키마로 끌어올린다.</div>
+
+        <div class="compare">
+          <div class="pane now">
+            <h4>현재</h4>
+            <ul>
+              <li>이미지 = base64 문자열, 33% 오버헤드</li>
+              <li>모든 데이터가 5MB localStorage 한 통 안에서 경쟁</li>
+              <li>백업/복원 = JPG 캡처가 유일</li>
+              <li>스키마 변경 = 즉시 마이그레이션 1회, 롤백 불가</li>
+            </ul>
+          </div>
+          <div class="pane next">
+            <h4>제안</h4>
+            <ul>
+              <li>이미지/GIF 는 <span class="mono">IndexedDB blob store</span> 로 분리</li>
+              <li>메타(exercises/routines) 만 localStorage 유지 → 빠른 첫 페인트</li>
+              <li>JSON 백업 export/import (수동 동기화 대용)</li>
+              <li>스키마는 <span class="mono">{version, migrate(prev)}</span> 체인으로 누적</li>
+            </ul>
+          </div>
+        </div>
+
+<div class="codeblock"><span class="c">// schema v2 — split heavy from hot</span>
+<span class="k">const</span> stores = {
+  <span class="n">'wo.meta.v2'</span>:    { exercises: ExerciseMeta[], routines: Routine[] },  <span class="c">// localStorage</span>
+  <span class="n">'wo.media.v2'</span>:   { [exerciseId]: <span class="k">Blob</span> },                          <span class="c">// IndexedDB</span>
+  <span class="n">'wo.cache.v2'</span>:   { seed: SeedIndex, ttl: <span class="k">number</span> }                  <span class="c">// IndexedDB</span>
+};
+
+<span class="add">+ exportBackup(): { meta, mediaManifest, version } → JSON.gz</span>
+<span class="add">+ importBackup(file): validate → diff → apply</span></div>
+      </div>
+    </div>
+
+    <!-- AREA 2: INPUT MODEL -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>2</em></span>
+        <h3 style="margin-top:14px;">입력 모델</h3>
+        <div class="tags">
+          <span class="tag-chip">Weight</span>
+          <span class="tag-chip">RPE</span>
+          <span class="tag-chip">Time</span>
+          <span class="tag-chip">Distance</span>
+          <span class="tag-chip">Per-set</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 진척도·PR·분석 모든 것의 전제</span>
+          <span><b>EFFORT</b> L · 2주 (UI + 시트 변형)</span>
+          <span><b>RISK</b> 기록 화면 복잡도 ↑ → 「간단 모드」 토글 필요</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>「sets × reps」 → 「set 배열」 로 평탄화</h3>
+        <div class="sub">중량 운동·러닝·플랭크·HIIT 가 한 모델 안에 공존하려면 <span class="mono">measure</span> 차원이 명시되어야 한다.</div>
+
+<div class="codeblock"><span class="rem">- routine.items: [ { source, refId, sets, reps } ]</span>
+<span class="add">+ routine.items: [{
++   source, refId,
++   measure: <span class="s">'reps'</span> | <span class="s">'time'</span> | <span class="s">'distance'</span>,
++   sets: [
++     { reps?: <span class="k">number</span>, weight?: <span class="k">number</span>, seconds?: <span class="k">number</span>,
++       distanceM?: <span class="k">number</span>, rpe?: 1..10, done: <span class="k">boolean</span> }
++   ],
++   restSec?: <span class="k">number</span>,
++   superset?: <span class="k">string</span>   <span class="c">// shared id ⇒ A1/A2/A3 grouping</span>
++ }]</span></div>
+
+        <div class="mock">
+          <div class="mock-title">— 세트별 입력 (TO-BE)</div>
+          <div class="setrow">
+            <span class="idx">01·1</span>
+            <span class="thumb">IMG</span>
+            <span><span class="nm">바벨 벤치 프레스</span><br/><span class="mut">CHEST · BARBELL</span></span>
+            <span class="chip"><b>60</b>kg</span>
+            <span class="chip"><b>10</b>회</span>
+            <span class="chip">RPE <b>7</b></span>
+            <span class="chip">2:00</span>
+            <span class="chip pr">PR ↑</span>
+          </div>
+          <div class="setrow">
+            <span class="idx">01·2</span>
+            <span class="thumb">IMG</span>
+            <span><span class="nm">바벨 벤치 프레스</span><br/><span class="mut">SET 2/4</span></span>
+            <span class="chip"><b>65</b>kg</span>
+            <span class="chip"><b>8</b>회</span>
+            <span class="chip">RPE <b>8</b></span>
+            <span class="chip">2:00</span>
+            <span class="chip" style="visibility:hidden;">·</span>
+          </div>
+          <div class="setrow">
+            <span class="idx">02·∑</span>
+            <span class="thumb">IMG</span>
+            <span><span class="nm">트레드밀 인터벌</span><br/><span class="mut">CARDIO · TIME</span></span>
+            <span class="chip" style="visibility:hidden;">·</span>
+            <span class="chip" style="visibility:hidden;">·</span>
+            <span class="chip"><b>20</b>:00</span>
+            <span class="chip"><b>3.4</b>km</span>
+            <span class="chip" style="visibility:hidden;">·</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AREA 3: PROGRESS -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>3</em></span>
+        <h3 style="margin-top:14px;">진척도 / 모멘텀</h3>
+        <div class="tags">
+          <span class="tag-chip">Streak</span>
+          <span class="tag-chip">Volume</span>
+          <span class="tag-chip">PR</span>
+          <span class="tag-chip">Muscle balance</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 리텐션의 심장</span>
+          <span><b>EFFORT</b> M · 1.5주</span>
+          <span><b>RISK</b> 데이터가 적을 때 빈 차트가 의욕을 꺾음 → 빈 상태 카피 중요</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>「기록」을 「궤적」으로 바꾸는 4개 위젯</h3>
+        <div class="sub">history 탭을 <b>대시보드 + 리스트</b> 2단 구조로 재설계.</div>
+
+        <div class="mock">
+          <div class="mock-title">— 13주 활동 히트맵 + 연속 기록</div>
+          <div class="row" style="margin-bottom:14px;">
+            <div style="flex:1;">
+              <div class="mono" style="font-size:11px; color:var(--ink-3); letter-spacing:0.12em;">CURRENT STREAK</div>
+              <div class="serif" style="font-size:38px; line-height:1; letter-spacing:-0.02em; margin-top:4px;">17<span class="mono" style="font-size:14px; color:var(--ink-3); margin-left:6px;">days</span></div>
+            </div>
+            <div style="flex:1;">
+              <div class="mono" style="font-size:11px; color:var(--ink-3); letter-spacing:0.12em;">WEEK VOLUME</div>
+              <div class="serif" style="font-size:38px; line-height:1; letter-spacing:-0.02em; margin-top:4px;">12,840<span class="mono" style="font-size:14px; color:var(--ink-3); margin-left:6px;">kg</span></div>
+            </div>
+            <div style="flex:1;">
+              <div class="mono" style="font-size:11px; color:var(--ink-3); letter-spacing:0.12em;">PR THIS WEEK</div>
+              <div class="serif" style="font-size:38px; line-height:1; letter-spacing:-0.02em; margin-top:4px;">3</div>
+            </div>
+          </div>
+          <div class="heat">
+            <!-- 13 weeks × 7 days flattened, sample data -->
+            <span data-l="0"></span><span data-l="1"></span><span data-l="2"></span><span data-l="0"></span><span data-l="3"></span><span data-l="2"></span><span data-l="1"></span>
+            <span data-l="2"></span><span data-l="3"></span><span data-l="0"></span><span data-l="1"></span><span data-l="2"></span><span data-l="3"></span><span data-l="2"></span>
+            <span data-l="0"></span><span data-l="2"></span><span data-l="3"></span><span data-l="2"></span><span data-l="1"></span><span data-l="0"></span><span data-l="2"></span>
+            <span data-l="3"></span><span data-l="2"></span><span data-l="3"></span><span data-l="0"></span><span data-l="1"></span><span data-l="2"></span><span data-l="3"></span>
+            <span data-l="2"></span><span data-l="0"></span><span data-l="1"></span><span data-l="2"></span><span data-l="3"></span><span data-l="2"></span><span data-l="0"></span>
+            <span data-l="1"></span><span data-l="3"></span><span data-l="2"></span><span data-l="3"></span><span data-l="2"></span><span data-l="3"></span><span data-l="2"></span>
+            <span data-l="3"></span><span data-l="2"></span><span data-l="3"></span><span data-l="4"></span><span data-l="3"></span><span data-l="2"></span><span data-l="3"></span>
+            <span data-l="2"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="3"></span><span data-l="3"></span><span data-l="4"></span>
+            <span data-l="3"></span><span data-l="3"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span>
+            <span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="3"></span>
+            <span data-l="3"></span><span data-l="4"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="4"></span><span data-l="3"></span>
+            <span data-l="4"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="4"></span><span data-l="4"></span><span data-l="3"></span>
+            <span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="4"></span><span data-l="3"></span><span data-l="4"></span><span data-l="0"></span>
+          </div>
+          <div class="heat-legend">
+            <span>LESS</span>
+            <i style="background:var(--bg-soft);"></i>
+            <i style="background:oklch(90% 0.04 150);"></i>
+            <i style="background:oklch(78% 0.09 150);"></i>
+            <i style="background:oklch(64% 0.13 150);"></i>
+            <i style="background:oklch(50% 0.14 150);"></i>
+            <span>MORE</span>
+            <span style="margin-left:auto;">13 WEEKS · MAR 02 → MAY 08</span>
+          </div>
+        </div>
+
+        <div class="compare" style="margin-top:18px;">
+          <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+            <h4>볼륨 트렌드</h4>
+            <ul>
+              <li>주간 총 <span class="mono">∑(weight × reps)</span></li>
+              <li>근육군별 세트 수 (가슴/등 균형)</li>
+              <li>4주 이동 평균 라인</li>
+            </ul>
+          </div>
+          <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+            <h4>PR 자동 감지</h4>
+            <ul>
+              <li>1RM 추정 (Epley): <span class="mono">w × (1 + r/30)</span></li>
+              <li>이전 최대값 갱신 시 시트에 ↑ 배지</li>
+              <li>PR 만 모은 「Records」 뷰</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AREA 4: SEARCH & DISCOVERY -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>4</em></span>
+        <h3 style="margin-top:14px;">검색 / 발견</h3>
+        <div class="tags">
+          <span class="tag-chip">Korean alias</span>
+          <span class="tag-chip">Recent</span>
+          <span class="tag-chip">Body map</span>
+          <span class="tag-chip">Fuzzy</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 1,324개 시드의 실 사용률</span>
+          <span><b>EFFORT</b> M · 별칭 사전 + ranker</span>
+          <span><b>RISK</b> 별칭 사전 품질 → LLM 1회 생성 후 사람 검수</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>한국어 입력 + 최근 사용 + 신체 부위 진입점</h3>
+        <div class="sub">검색은 <b>3 layer</b>: ① local ② recent (최근 30일) ③ seed. recent 가 항상 상단.</div>
+
+        <div class="mock search-mock">
+          <div class="search-bar">
+            <span class="search-icon"></span>
+            <input value="벤치" />
+            <span class="mono" style="font-size:11px; color:var(--ink-3);">23 결과</span>
+          </div>
+          <div class="filters">
+            <span class="filt on">전체</span>
+            <span class="filt">가슴</span>
+            <span class="filt">등</span>
+            <span class="filt">어깨</span>
+            <span class="filt">팔</span>
+            <span class="filt">복부</span>
+            <span class="filt">다리</span>
+            <span class="filt">유산소</span>
+            <span class="filt" style="margin-left:auto;">⚙ 장비</span>
+          </div>
+          <div class="res">
+            <div class="thumb">IMG</div>
+            <div><div class="nm">바벨 벤치 프레스</div><div class="meta">CHEST · BARBELL · 마지막 사용 어제</div></div>
+            <span class="badge badge-recent">RECENT</span>
+          </div>
+          <div class="res">
+            <div class="thumb">IMG</div>
+            <div><div class="nm">덤벨 벤치 프레스</div><div class="meta">CHEST · DUMBBELL</div></div>
+            <span class="badge badge-local">MY</span>
+          </div>
+          <div class="res">
+            <div class="thumb">IMG</div>
+            <div><div class="nm">인클라인 벤치 프레스 <span class="mut" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-3);">incline bench press</span></div><div class="meta">CHEST · BARBELL</div></div>
+            <span class="badge badge-seed">SEED</span>
+          </div>
+          <div class="res">
+            <div class="thumb">IMG</div>
+            <div><div class="nm">클로즈 그립 벤치 프레스 <span class="mut" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-3);">close-grip bench</span></div><div class="meta">TRICEPS · BARBELL</div></div>
+            <span class="badge badge-seed">SEED</span>
+          </div>
+        </div>
+
+<div class="codeblock"><span class="c">// alias index — generated once, hand-curated</span>
+<span class="k">const</span> alias = {
+  <span class="n">'벤치'</span>:    [<span class="s">'bench press'</span>, <span class="s">'incline bench'</span>, <span class="s">'close-grip bench'</span>],
+  <span class="n">'스쿼트'</span>:  [<span class="s">'back squat'</span>, <span class="s">'front squat'</span>, <span class="s">'goblet squat'</span>],
+  <span class="n">'데드'</span>:    [<span class="s">'deadlift'</span>, <span class="s">'romanian deadlift'</span>, <span class="s">'sumo deadlift'</span>],
+  <span class="n">'풀업'</span>:    [<span class="s">'pull-up'</span>, <span class="s">'chin-up'</span>],
+  <span class="c">// ... ~120 entries cover 80% of common queries</span>
+};
+
+<span class="k">function</span> rank(q) {
+  <span class="k">return</span> [
+    ...local.filter(matches),               <span class="c">// my library — always first</span>
+    ...recent30d.filter(matches),           <span class="c">// recently used</span>
+    ...seed.filter(matchesAlias(q, alias))  <span class="c">// public dataset</span>
+  ];
+}</span></div>
+      </div>
+    </div>
+
+    <!-- AREA 5: OUTPUT -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>5</em></span>
+        <h3 style="margin-top:14px;">출력 / 공유</h3>
+        <div class="tags">
+          <span class="tag-chip">Responsive sheet</span>
+          <span class="tag-chip">PDF</span>
+          <span class="tag-chip">Story 9:16</span>
+          <span class="tag-chip">QR</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 결과물 다양화 → 자랑할 거리</span>
+          <span><b>EFFORT</b> M · 시트 템플릿 분리</span>
+          <span><b>RISK</b> 디자인 분기 → 시트는 1개 component, format flag 로 분기</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>720px 단일 시트 → 화면용·인쇄용·공유용 3 포맷</h3>
+        <div class="sub">화면(반응형) / 인쇄(A4 다중 페이지) / 공유(9:16 + 1:1 카드) — <b>한 데이터 · 세 레이아웃</b>.</div>
+
+        <div class="sheets">
+          <div class="sheet">
+            <div class="sh-h">
+              <div><div class="sh-t">하체 — 화·금</div></div>
+              <div class="sh-d">2026.05.08</div>
+            </div>
+            <div class="sh-r"><span class="ix">01</span><span class="img"></span><span class="nm">백 스쿼트</span><span class="x">4×8</span></div>
+            <div class="sh-r"><span class="ix">02</span><span class="img"></span><span class="nm">루마니안 데드</span><span class="x">3×10</span></div>
+            <div class="sh-r"><span class="ix">03</span><span class="img"></span><span class="nm">레그 프레스</span><span class="x">3×12</span></div>
+            <div class="sh-r"><span class="ix">04</span><span class="img"></span><span class="nm">레그 컬</span><span class="x">3×15</span></div>
+            <div class="sh-r"><span class="ix">05</span><span class="img"></span><span class="nm">카프 레이즈</span><span class="x">4×20</span></div>
+            <div class="sh-r"><span class="ix">06</span><span class="img"></span><span class="nm">행잉 레그 레이즈</span><span class="x">3×12</span></div>
+            <div class="sh-r" style="border:none; opacity:0.4;"><span class="ix">07</span><span class="img"></span><span class="nm">…</span><span class="x"></span></div>
+          </div>
+          <div class="sheet story">
+            <div class="sh-h">
+              <div><div class="sh-t">LEG DAY</div></div>
+              <div class="sh-d">05.08 · 18,420kg</div>
+            </div>
+            <div class="sh-r"><span class="ix">01</span><span class="img"></span><span class="nm">백 스쿼트</span><span class="x">100×8</span></div>
+            <div class="sh-r"><span class="ix">02</span><span class="img"></span><span class="nm">RDL</span><span class="x">80×10</span></div>
+            <div class="sh-r"><span class="ix">03</span><span class="img"></span><span class="nm">레그 프레스</span><span class="x">160×12</span></div>
+            <div style="margin-top:auto; padding-top:8px; border-top:1px solid rgba(255,255,255,0.15); display:flex; justify-content:space-between; align-items:end;">
+              <div>
+                <div class="mono" style="font-size:7px; letter-spacing:0.16em; color:#a59880;">STREAK</div>
+                <div class="serif" style="font-size:18px; color:#fff8e7; line-height:1;">17<span style="font-size:9px; color:#a59880; margin-left:3px;">days</span></div>
+              </div>
+              <div class="qr" style="width:30px; height:30px; background:conic-gradient(from 0deg, #fff8e7 25%, transparent 25% 50%, #fff8e7 50% 75%, transparent 75%); background-size:5px 5px; border-radius:2px;"></div>
+            </div>
+          </div>
+          <div class="sheet card">
+            <div>
+              <div class="mono" style="font-size:8px; letter-spacing:0.18em; color:#a59880;">2026.05.08</div>
+              <div class="sh-t">LEG DAY</div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+              <div>
+                <div class="mono" style="font-size:8px; color:#a59880; letter-spacing:0.14em;">VOLUME</div>
+                <div class="serif" style="font-size:20px; line-height:1;">18,420kg</div>
+              </div>
+              <div>
+                <div class="mono" style="font-size:8px; color:#a59880; letter-spacing:0.14em;">SETS</div>
+                <div class="serif" style="font-size:20px; line-height:1;">22</div>
+              </div>
+            </div>
+            <div class="qr" style="margin-top:auto; align-self:flex-end;"></div>
+          </div>
+        </div>
+        <div class="row" style="gap:12%; margin-top:8px;">
+          <span class="sheet-cap" style="flex:1;">A4 · PRINT</span>
+          <span class="sheet-cap" style="flex:1;">9:16 · STORY</span>
+          <span class="sheet-cap" style="flex:1;">1:1 · CARD + QR</span>
+        </div>
+
+        <div class="compare" style="margin-top:24px;">
+          <div class="pane now"><h4>현재</h4><ul>
+            <li>720px 고정 폭 단일 시트</li>
+            <li>JPG 1포맷 (html2canvas scale:2)</li>
+            <li>모바일에서 가로 스크롤 발생</li>
+            <li>「공유」 = 이미지 첨부</li>
+          </ul></div>
+          <div class="pane next"><h4>제안</h4><ul>
+            <li>화면용: 반응형 (clamp 360–720px)</li>
+            <li>인쇄용: <span class="mono">@page A4</span> 다중 페이지 + Save as PDF</li>
+            <li>공유용: 9:16 스토리 / 1:1 카드 + QR(json deeplink)</li>
+            <li>QR 스캔 시 같은 HTML 이 그 루틴 미리보기로 진입</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AREA 6: SESSION / TIMER -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>6</em></span>
+        <h3 style="margin-top:14px;">세션 모드 / 타이머</h3>
+        <div class="tags">
+          <span class="tag-chip">Active session</span>
+          <span class="tag-chip">Rest timer</span>
+          <span class="tag-chip">Wake lock</span>
+          <span class="tag-chip">Quick log</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 「기록 앱」 → 「운동 중 동반자」</span>
+          <span><b>EFFORT</b> S · 1주</span>
+          <span><b>RISK</b> Wake Lock API iOS 제약 → fallback 안내 필요</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>「루틴 만들기」 안에 「실행 모드」를 끼워 넣는다</h3>
+        <div class="sub">기록은 사후가 아니라 운동 중. <b>checklist + rest timer + 화면 켜둠</b> 3가지로 충분하다.</div>
+
+        <div class="mock" style="padding:16px;">
+          <div class="mock-title">— 실행 모드 (TO-BE)</div>
+          <div class="timer">
+            <div class="ring"><span>1:18</span></div>
+            <div>
+              <div class="lbl">REST</div>
+              <div class="big">남은 1:18 / 2:00</div>
+            </div>
+            <div class="next">
+              <div class="lbl">NEXT · SET 3 / 4</div>
+              <div class="nm">바벨 벤치 프레스 — 65kg × 8</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px; display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+            <div style="padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg-card);">
+              <div class="mono" style="font-size:10px; color:var(--ink-3); letter-spacing:0.1em;">SET 1 · ✓</div>
+              <div class="serif" style="font-size:18px; line-height:1; margin-top:4px;">60<span class="mono" style="font-size:11px; color:var(--ink-3);">kg</span></div>
+              <div class="mono" style="font-size:11px; color:var(--ink-2); margin-top:2px;">10 reps</div>
+            </div>
+            <div style="padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg-card);">
+              <div class="mono" style="font-size:10px; color:var(--ink-3); letter-spacing:0.1em;">SET 2 · ✓</div>
+              <div class="serif" style="font-size:18px; line-height:1; margin-top:4px;">65<span class="mono" style="font-size:11px; color:var(--ink-3);">kg</span></div>
+              <div class="mono" style="font-size:11px; color:var(--ink-2); margin-top:2px;">8 reps</div>
+            </div>
+            <div style="padding:10px; border:2px solid var(--accent); border-radius:8px; background:#fff;">
+              <div class="mono" style="font-size:10px; color:var(--accent); letter-spacing:0.1em;">SET 3 · NOW</div>
+              <div class="serif" style="font-size:18px; line-height:1; margin-top:4px;">65<span class="mono" style="font-size:11px; color:var(--ink-3);">kg</span></div>
+              <div class="mono" style="font-size:11px; color:var(--ink-2); margin-top:2px;">8 reps · target</div>
+            </div>
+            <div style="padding:10px; border:1px dashed var(--line); border-radius:8px;">
+              <div class="mono" style="font-size:10px; color:var(--ink-4); letter-spacing:0.1em;">SET 4</div>
+              <div class="serif" style="font-size:18px; line-height:1; margin-top:4px; color:var(--ink-4);">—</div>
+              <div class="mono" style="font-size:11px; color:var(--ink-4); margin-top:2px;">awaiting</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="compare" style="margin-top:18px;">
+          <div class="pane now"><h4>현재</h4><ul>
+            <li>운동 후 일괄 입력 가정</li>
+            <li>타이머 없음 → 휴대폰 시계 별도 사용</li>
+            <li>화면 자동 잠김 → 매번 다시 깨워야 함</li>
+            <li>세트별 완료 체크 개념 없음</li>
+          </ul></div>
+          <div class="pane next"><h4>제안</h4><ul>
+            <li>루틴 빌더에 <b>「운동 시작」</b> CTA 추가</li>
+            <li>세트 완료 → 자동 휴식 타이머 시작 (운동별 기본값 유지)</li>
+            <li><span class="mono">navigator.wakeLock.request('screen')</span> 활성화</li>
+            <li><b>Quick Repeat</b>: 「지난 화요일과 동일하게」 1탭으로 새 세션 생성</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AREA 7: VISUAL IDENTITY (Color + Type) -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>7</em></span>
+        <h3 style="margin-top:14px;">컬러 / 타이포그래피</h3>
+        <div class="tags">
+          <span class="tag-chip">Tokens</span>
+          <span class="tag-chip">Semantic</span>
+          <span class="tag-chip">Dark mode</span>
+          <span class="tag-chip">Numerics</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 모든 화면에 누적 — 인상 결정</span>
+          <span><b>EFFORT</b> S · 토큰 정의 + CSS 변수</span>
+          <span><b>RISK</b> 시드 이미지의 기존 톤과 충돌 가능</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>현재 설계서에는 색·서체 사양이 없다</h3>
+        <div class="sub">v1 은 「기능」만 정의되어 있다. 동시에 시각 토큰을 굳혀야 라이트/다크·시트/대시보드가 한 언어로 묶인다.</div>
+
+        <div class="compare">
+          <div class="pane now"><h4>현재</h4><ul>
+            <li>색 사양 없음 → 구현 시 임의 결정 누적</li>
+            <li>서체 사양 없음 → 한글·숫자 혼재 시 무게중심 흔들림</li>
+            <li>「PR」 「완료」 「경고」 같은 의미 색이 매번 새로 정의됨</li>
+            <li>다크 모드 미고려 → 야간 헬스장 사용 시 눈부심</li>
+          </ul></div>
+          <div class="pane next"><h4>제안</h4><ul>
+            <li><b>토큰 4계층</b>: surface · ink · accent · semantic</li>
+            <li><b>한 액센트 + 의미 4색</b> (PR · 진행중 · 위험 · 정보)</li>
+            <li><b>한·영·숫자 분리 폰트</b>: Pretendard + JetBrains Mono</li>
+            <li>다크 모드는 surface/ink 만 반전 — accent 채도 동일</li>
+          </ul></div>
+        </div>
+
+        <!-- LIGHT PALETTE -->
+        <div class="mock">
+          <div class="mock-title">— 라이트 팔레트 (PROPOSAL)</div>
+          <div class="palette">
+            <div class="sw"><div class="chip-bg" style="background:oklch(97.5% 0.005 90); color:#444; border-bottom:1px solid var(--line);">#f6f4ef</div><div class="meta"><div class="role">surface / bg</div><div class="tok">oklch 97.5 0.005 90</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(99% 0.003 90); color:#444; border-bottom:1px solid var(--line);">card</div><div class="meta"><div class="role">surface-elev</div><div class="tok">oklch 99 0.003 90</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(88% 0.006 80); color:#444;">line</div><div class="meta"><div class="role">border</div><div class="tok">oklch 88 0.006 80</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(18% 0.012 60);">ink</div><div class="meta"><div class="role">ink (text)</div><div class="tok">oklch 18 0.012 60</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(56% 0.14 150);">accent</div><div class="meta"><div class="role">leaf · 완료/PR</div><div class="tok">oklch 56 0.14 150</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(70% 0.13 80);">pr</div><div class="meta"><div class="role">amber · 진행중</div><div class="tok">oklch 70 0.13 80</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(58% 0.15 45);">warn</div><div class="meta"><div class="role">terra · 삭제/경고</div><div class="tok">oklch 58 0.15 45</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(54% 0.12 255);">info</div><div class="meta"><div class="role">cobalt · seed/안내</div><div class="tok">oklch 54 0.12 255</div></div></div>
+          </div>
+
+          <div class="mock-title" style="margin-top:24px;">— 다크 팔레트 (PROPOSAL · 야간 헬스장 모드)</div>
+          <div class="palette dark">
+            <div class="sw"><div class="chip-bg" style="background:oklch(14% 0.01 60);">surface</div><div class="meta"><div class="role">surface / bg</div><div class="tok">oklch 14 0.01 60</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(18% 0.012 60);">elev</div><div class="meta"><div class="role">surface-elev</div><div class="tok">oklch 18 0.012 60</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(28% 0.015 60);">line</div><div class="meta"><div class="role">border</div><div class="tok">oklch 28 0.015 60</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(96% 0.005 90); color:#222;">ink</div><div class="meta"><div class="role">ink (text)</div><div class="tok">oklch 96 0.005 90</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(72% 0.14 150); color:#11261b;">accent</div><div class="meta"><div class="role">leaf — lifted</div><div class="tok">oklch 72 0.14 150</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(78% 0.13 80); color:#3a2a05;">pr</div><div class="meta"><div class="role">amber — lifted</div><div class="tok">oklch 78 0.13 80</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(70% 0.15 45); color:#2e0f06;">warn</div><div class="meta"><div class="role">terra — lifted</div><div class="tok">oklch 70 0.15 45</div></div></div>
+            <div class="sw"><div class="chip-bg" style="background:oklch(70% 0.12 255); color:#0c1a30;">info</div><div class="meta"><div class="role">cobalt — lifted</div><div class="tok">oklch 70 0.12 255</div></div></div>
+          </div>
+        </div>
+
+        <!-- COLOR USAGE RULES -->
+        <div class="mock" style="margin-top:16px;">
+          <div class="mock-title">— 의미 매핑 (USE WITH INTENT)</div>
+          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; font-size:13px;">
+            <div style="padding:14px; background:oklch(94% 0.04 150); border-radius:8px; border:1px solid oklch(56% 0.14 150 / 0.3);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; color:oklch(40% 0.12 150);">LEAF · ACCENT</div>
+              <div style="margin-top:6px; color:var(--ink);">세트 완료 체크 · PR 갱신 배지 · streak 카운터.<br/><b style="color:oklch(45% 0.13 150);">희소하게</b> — 한 화면에 1–2 곳.</div>
+            </div>
+            <div style="padding:14px; background:oklch(96% 0.04 80); border-radius:8px; border:1px solid oklch(70% 0.13 80 / 0.4);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; color:oklch(45% 0.12 80);">AMBER · 진행중</div>
+              <div style="margin-top:6px; color:var(--ink);">진행 중 세트 테두리 · 휴식 타이머 링.<br/>「지금 이 순간」을 가리키는 색.</div>
+            </div>
+            <div style="padding:14px; background:oklch(95% 0.04 50); border-radius:8px; border:1px solid oklch(58% 0.15 45 / 0.3);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; color:oklch(45% 0.14 45);">TERRA · 위험</div>
+              <div style="margin-top:6px; color:var(--ink);">루틴/동작 삭제 · 데이터 손실 경고.<br/>일반 「취소」에는 절대 쓰지 않음.</div>
+            </div>
+            <div style="padding:14px; background:oklch(94% 0.03 255); border-radius:8px; border:1px solid oklch(54% 0.12 255 / 0.3);">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; color:oklch(40% 0.11 255);">COBALT · 정보</div>
+              <div style="margin-top:6px; color:var(--ink);">SEED 출처 배지 · 도움말 토스트.<br/>중립적인 「알림」 톤.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TYPE SPECIMEN -->
+        <div class="mock" style="margin-top:16px;">
+          <div class="mock-title">— 타이포그래피 스택 (PROPOSAL)</div>
+          <div class="specimen" style="border-top:none;">
+            <div class="meta"><b>HEAD · 32/40</b>Pretendard 600 ‑0.02em</div>
+            <div class="sample" style="font-size:32px; line-height:1.2; letter-spacing:-0.02em; font-weight:600;">하체 — 화·금</div>
+          </div>
+          <div class="specimen">
+            <div class="meta"><b>TITLE · 19/26</b>Pretendard 600</div>
+            <div class="sample" style="font-size:19px; line-height:1.4; font-weight:600;">바벨 벤치 프레스</div>
+          </div>
+          <div class="specimen">
+            <div class="meta"><b>BODY · 14/22</b>Pretendard 400</div>
+            <div class="sample" style="font-size:14px; line-height:1.55; font-weight:400;">설명: 바를 가슴 중앙으로 천천히 내리고 호흡과 함께 밀어올린다. 어깨가 들리지 않도록 견갑을 모은 상태 유지.</div>
+          </div>
+          <div class="specimen">
+            <div class="meta"><b>METRIC · 38/40</b>Fraunces 500 (옵션)</div>
+            <div class="sample serif" style="font-size:38px; line-height:1; letter-spacing:-0.02em; font-weight:500;">12,840<span style="font-size:14px; color:var(--ink-3); margin-left:6px; font-family:'JetBrains Mono',monospace;">kg · WK 18</span></div>
+          </div>
+          <div class="specimen">
+            <div class="meta"><b>NUMERIC · 13/18</b>JetBrains Mono 500</div>
+            <div class="sample mono" style="font-size:13px; line-height:1.4; font-weight:500;">60kg × 10 · RPE 7 · 02:00</div>
+          </div>
+          <div class="specimen">
+            <div class="meta"><b>EYEBROW · 11/16</b>JetBrains Mono 500 0.16em UP</div>
+            <div class="sample mono" style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-3); font-weight:500;">CHEST · BARBELL · LAST USED YESTERDAY</div>
+          </div>
+        </div>
+
+        <p style="font-size:13px; color:var(--ink-3); margin-top:14px; max-width:60ch;">
+          숫자는 <b class="mono">tabular figures</b> 강제 (<span class="mono">font-feature-settings:"tnum"</span>). 무게·세트·시간이 표에서 정렬되도록.
+        </p>
+      </div>
+    </div>
+
+    <!-- AREA 8: IA & NAVIGATION -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>8</em></span>
+        <h3 style="margin-top:14px;">IA / 네비게이션</h3>
+        <div class="tags">
+          <span class="tag-chip">Today-first</span>
+          <span class="tag-chip">Bottom nav</span>
+          <span class="tag-chip">Mobile</span>
+          <span class="tag-chip">Quick log</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 첫 화면이 사용자의 다음 행동을 결정</span>
+          <span><b>EFFORT</b> M · 라우팅 + 「Today」 신규 화면</span>
+          <span><b>RISK</b> 기존 사용자는 라이브러리 → 빌더 흐름에 적응됨</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>「라이브러리 / 빌더 / 기록」은 만드는 사람의 모델이다</h3>
+        <div class="sub">사용자의 모델은 「<b>오늘 뭐 할까 → 시작 → 끝나면 어디 갔지</b>」. 첫 탭이 라이브러리인 한 매 세션이 두 단계 더 깊다.</div>
+
+        <div class="phones">
+          <div>
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="phone-status"><span>9:41</span><span>●●● ●</span></div>
+                <div class="phone-tabs">
+                  <div class="phone-tab on">라이브러리</div>
+                  <div class="phone-tab">루틴 만들기</div>
+                  <div class="phone-tab">기록 내역</div>
+                </div>
+                <div class="phone-body">
+                  <h5>동작 라이브러리</h5>
+                  <div class="lab">검색 + 업로드 폼</div>
+                  <div class="phone-card"><b>업로드 폼</b><br/><span style="color:var(--ink-3);">이미지 + 이름 + 설명</span></div>
+                  <div class="lab">내 동작 (12)</div>
+                  <div class="phone-card"><b>벤치 프레스</b><br/><span style="color:var(--ink-3);">CHEST · 어제 수정</span></div>
+                  <div class="phone-card"><b>스쿼트</b><br/><span style="color:var(--ink-3);">LEGS · 3일 전</span></div>
+                  <div class="phone-card"><b>데드리프트</b><br/><span style="color:var(--ink-3);">BACK · 5일 전</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="sheet-cap" style="margin-top:14px;">AS-IS · 첫 화면 = 라이브러리</p>
+            <p style="font-size:12px; color:var(--ink-3); text-align:center; margin-top:6px; max-width:32ch; margin-left:auto; margin-right:auto; line-height:1.5;">
+              운동 시작까지 <b style="color:var(--warn);">3 탭 + 검색 + 항목 추가 ×N</b>. 매번.
+            </p>
+          </div>
+
+          <div>
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="phone-status"><span>9:41</span><span>●●● ●</span></div>
+                <div class="phone-body" style="padding-bottom:0;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+                    <div>
+                      <div class="lab" style="margin-top:0;">5월 8일 · 금</div>
+                      <h5 style="margin:0; font-size:16px;">오늘</h5>
+                    </div>
+                    <span class="mono" style="font-size:9px; color:oklch(56% 0.14 150);">STREAK 17</span>
+                  </div>
+                  <div class="phone-cta">
+                    <span>지난 화요일과 동일하게 시작</span>
+                    <span class="mono">▸</span>
+                  </div>
+                  <div class="lab">빠른 시작</div>
+                  <div class="phone-card"><b>하체 — 화·금</b><br/><span style="color:var(--ink-3);">8 동작 · 평균 52분</span></div>
+                  <div class="phone-card"><b>밀기 — 월·목</b><br/><span style="color:var(--ink-3);">6 동작 · 평균 44분</span></div>
+                  <div class="lab">이번 주</div>
+                  <div class="phone-card" style="display:flex; justify-content:space-between;"><span><b>4 / 5</b> 세션</span><span style="color:var(--ink-3);">12,840 kg</span></div>
+                </div>
+                <div class="phone-bottom">
+                  <span class="on"><i></i>오늘</span>
+                  <span><i></i>루틴</span>
+                  <span><i></i>동작</span>
+                  <span><i></i>통계</span>
+                </div>
+              </div>
+            </div>
+            <p class="sheet-cap" style="margin-top:14px;">TO-BE · 첫 화면 = 오늘</p>
+            <p style="font-size:12px; color:oklch(45% 0.13 150); text-align:center; margin-top:6px; max-width:32ch; margin-left:auto; margin-right:auto; line-height:1.5;">
+              운동 시작까지 <b>1 탭</b>. 「Quick Repeat」가 첫 CTA.
+            </p>
+          </div>
+        </div>
+
+        <!-- IA tree compare -->
+        <div class="compare" style="margin-top:32px;">
+          <div class="pane now"><h4>현재 IA</h4>
+<pre class="mono" style="font-size:12px; color:var(--ink-2); line-height:1.6; margin:0; white-space:pre-wrap;">/ (= 라이브러리)
+├─ 라이브러리
+│   ├─ 업로드 폼
+│   ├─ 검색 / 카드 그리드
+│   └─ 편집 모달
+├─ 루틴 만들기
+│   ├─ 메타 (날짜·제목·메모)
+│   ├─ 검색 + 후보 리스트
+│   └─ 항목 + 드롭다운
+└─ 기록 내역
+    ├─ 카드 리스트
+    ├─ A4 미리보기
+    ├─ JPG 저장 / 삭제
+    └─ 불러오기 → 빌더 이동</pre>
+          </div>
+          <div class="pane next"><h4>제안 IA</h4>
+<pre class="mono" style="font-size:12px; color:var(--ink-2); line-height:1.6; margin:0; white-space:pre-wrap;">/ (= 오늘)
+├─ <b style="color:var(--ink);">오늘</b> · today
+│   ├─ Quick Repeat · 지난 세션 복제
+│   ├─ 빠른 시작 · 즐겨찾는 루틴 3개
+│   └─ 이번 주 진척 (heatmap snippet)
+├─ <b style="color:var(--ink);">루틴</b> · routines
+│   ├─ 내 루틴 (즐겨찾기 우선)
+│   └─ 새 루틴 만들기 → 빌더
+├─ <b style="color:var(--ink);">동작</b> · library
+│   ├─ 내 동작 + 시드 통합 검색
+│   ├─ 카테고리 / 장비 필터
+│   └─ 업로드 (FAB)
+└─ <b style="color:var(--ink);">통계</b> · stats
+    ├─ 히트맵 · 볼륨 · PR
+    └─ 기록 내역 (필터 가능)</pre>
+          </div>
+        </div>
+
+        <p style="font-size:13px; color:var(--ink-3); margin-top:18px; max-width:64ch; line-height:1.65;">
+          데스크톱은 <b>좌측 사이드바</b>로 같은 4 항목을 가로 대신 세로로 노출. 「기록 내역」은 통계 탭 안 필터 가능 리스트로 흡수해 탭 수를 4개로 유지.
+        </p>
+      </div>
+    </div>
+
+    <!-- AREA 9: COMPONENT DENSITY / GRAMMAR -->
+    <div class="area">
+      <div class="area-side">
+        <span class="num">0<em>9</em></span>
+        <h3 style="margin-top:14px;">컴포넌트 밀도</h3>
+        <div class="tags">
+          <span class="tag-chip">Single primitive</span>
+          <span class="tag-chip">3 densities</span>
+          <span class="tag-chip">Touch ≥44</span>
+          <span class="tag-chip">Token-driven</span>
+        </div>
+        <div class="imp">
+          <span><b>IMPACT</b> 화면 간 시각 일관성</span>
+          <span><b>EFFORT</b> S · 1 component, 3 variants</span>
+          <span><b>RISK</b> 너무 단조로워질 수 있음 → hero 변형으로 강조</span>
+        </div>
+      </div>
+      <div class="area-body">
+        <h3>라이브러리 카드 · 빌더 행 · 시트 줄 — 한 컴포넌트로 합친다</h3>
+        <div class="sub">현재는 같은 「운동 1개」를 세 가지 시각 문법으로 보여준다. <b>1 primitive + 3 density</b>로 묶으면 학습 비용이 사라진다.</div>
+
+        <div class="mock">
+          <div class="mock-title">— ExerciseRow · 3 density</div>
+          <div class="grammar">
+            <div class="gx gx-compact">
+              <span class="sz">COMPACT · 40h</span>
+              <span class="th" style="width:24px; height:24px;"></span>
+              <span class="nm">바벨 벤치 프레스</span>
+              <span class="mono" style="font-size:11px; color:var(--ink-3);">4×8</span>
+            </div>
+            <div class="gx gx-default">
+              <span class="sz">DEFAULT · 80h</span>
+              <span class="th"></span>
+              <div>
+                <div class="nm">바벨 벤치 프레스</div>
+                <div class="mt">CHEST · BARBELL · 어제 사용</div>
+              </div>
+              <span class="p">4 sets</span>
+              <span class="p act">PR ↑</span>
+            </div>
+            <div class="gx gx-expanded">
+              <span class="sz">EXPANDED · 120h</span>
+              <span class="th"></span>
+              <div>
+                <div class="nm" style="font-size:18px;">바벨 벤치 프레스</div>
+                <div class="mt">바를 가슴 중앙으로 내리고, 호흡과 함께 밀어올린다.</div>
+                <div class="pill-row">
+                  <span class="p act">SET 3 / 4</span>
+                  <span class="p">65kg × 8</span>
+                  <span class="p">RPE 7</span>
+                  <span class="p">REST 2:00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:12px; color:var(--ink-3); margin-top:14px;">
+            ↳ <b>compact</b> = 시트(인쇄·공유) · <b>default</b> = 라이브러리·검색 · <b>expanded</b> = 실행 모드.
+          </p>
+        </div>
+
+        <!-- TOKEN TABLE -->
+        <div class="tokens">
+          <div class="row hd"><span>token</span><span>역할</span><span>값</span></div>
+          <div class="row"><span class="name">--row-h-compact</span><span>인쇄·공유 시트의 줄 높이</span><span class="val">40px</span></div>
+          <div class="row"><span class="name">--row-h-default</span><span>라이브러리·검색 결과 카드</span><span class="val">80px</span></div>
+          <div class="row"><span class="name">--row-h-expanded</span><span>실행 모드 진행 중인 동작</span><span class="val">120px</span></div>
+          <div class="row"><span class="name">--touch-min</span><span>모바일 탭 영역 최소</span><span class="val">44px</span></div>
+          <div class="row"><span class="name">--gap-row</span><span>row 간 간격</span><span class="val">8 / 12 / 16px</span></div>
+          <div class="row"><span class="name">--radius-row</span><span>row 모서리</span><span class="val">8px</span></div>
+          <div class="row"><span class="name">--thumb-size</span><span>썸네일 (compact/default/expanded)</span><span class="val">24 / 48 / 80px</span></div>
+        </div>
+
+        <div class="compare" style="margin-top:18px;">
+          <div class="pane now"><h4>현재 — 3가지 시각 문법</h4><ul>
+            <li>라이브러리: 카드 그리드 (이미지 위, 이름 아래)</li>
+            <li>루틴 빌더: 항목 + 드롭다운 (테이블도 카드도 아님)</li>
+            <li>시트: 좁은 표 (1줄 row)</li>
+            <li>같은 운동이 화면마다 다르게 「보임」</li>
+          </ul></div>
+          <div class="pane next"><h4>제안 — 1 primitive · 3 variant</h4><ul>
+            <li>전 화면이 같은 ExerciseRow 만 사용</li>
+            <li>density 변수만 바꿈 → 학습 비용 0</li>
+            <li>시트도 같은 컴포넌트의 compact variant</li>
+            <li>썸네일/메타/배지 위치가 모든 화면에서 일관</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────────────────────────  PRIORITY MATRIX  ───────────────────────── -->
+<section data-screen-label="05 Priority Matrix">
+  <div class="wrap">
+    <div class="eyebrow">§ 04 — Priority Matrix</div>
+    <h2 class="serif" style="max-width:18ch;">Impact × Effort,<br/>그리고 다음에 만질 것.</h2>
+    <p style="max-width:60ch; font-size:15px; margin-top:14px;">
+      18개 제안을 영향력(가로) × 작업량(세로) 평면 위에 배치했다.
+      <b>좌상단(High Impact / Low Effort)</b> 이 다음 스프린트.
+    </p>
+
+    <div class="matrix">
+      <span class="ax ax-y-top">HIGH EFFORT</span>
+      <span class="ax ax-y-bot">LOW EFFORT</span>
+      <span class="ax ax-x-l">LOW IMPACT</span>
+      <span class="ax ax-x-r">HIGH IMPACT</span>
+
+      <span class="quad-label" style="left:36%; top:18%;">Q2 · 큰 베팅</span>
+      <span class="quad-label" style="left:8%;  top:18%;">Q3 · 거름</span>
+      <span class="quad-label" style="left:8%;  bottom:18%;">Q4 · 사이드퀘스트</span>
+      <span class="quad-label" style="left:60%; bottom:18%;">Q1 · 즉시 착수</span>
+
+      <!-- Q1: low effort high impact -->
+      <div class="item hot" style="left:78%; top:72%;"><span class="n">P·01</span>한국어 별칭 사전</div>
+      <div class="item hot" style="left:88%; top:82%;"><span class="n">P·02</span>최근 사용 검색 풀</div>
+      <div class="item hot" style="left:70%; top:62%;"><span class="n">P·03</span>휴식 타이머 + Wake Lock</div>
+      <div class="item hot" style="left:65%; top:80%;"><span class="n">P·04</span>JSON 백업 export/import</div>
+      <div class="item hot" style="left:80%; top:60%;"><span class="n">P·05</span>Quick Repeat (지난 루틴 복제)</div>
+
+      <!-- Q2: high effort high impact -->
+      <div class="item" style="left:78%; top:30%;"><span class="n">P·06</span>세트 배열 + 중량/RPE</div>
+      <div class="item" style="left:68%; top:18%;"><span class="n">P·07</span>IndexedDB 마이그레이션</div>
+      <div class="item" style="left:88%; top:24%;"><span class="n">P·08</span>대시보드 (히트맵·볼륨·PR)</div>
+      <div class="item" style="left:60%; top:38%;"><span class="n">P·09</span>실행 모드 (세션 UI)</div>
+      <div class="item" style="left:90%; top:40%;"><span class="n">P·10</span>반응형 시트 + PDF 인쇄</div>
+
+      <!-- Q3: low impact high effort -->
+      <div class="item" style="left:25%; top:22%;"><span class="n">P·11</span>다중 기기 동기화 서버</div>
+      <div class="item" style="left:18%; top:38%;"><span class="n">P·12</span>전체 한국어 번역</div>
+      <div class="item" style="left:32%; top:14%;"><span class="n">P·13</span>커뮤니티 / 공유 피드</div>
+
+      <!-- Q4: low impact low effort -->
+      <div class="item" style="left:30%; top:72%;"><span class="n">P·14</span>다크 모드</div>
+      <div class="item" style="left:22%; top:84%;"><span class="n">P·15</span>1:1 / 9:16 공유 카드</div>
+      <div class="item" style="left:38%; top:80%;"><span class="n">P·16</span>QR deeplink</div>
+      <div class="item" style="left:42%; top:64%;"><span class="n">P·17</span>드래그 재정렬</div>
+      <div class="item" style="left:18%; top:62%;"><span class="n">P·18</span>슈퍼셋 그룹화</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  ROADMAP  ───────────────────────── -->
+<section data-screen-label="06 Roadmap">
+  <div class="wrap">
+    <div class="eyebrow">§ 05 — Phased Roadmap</div>
+    <h2 class="serif" style="max-width:14ch;">v1.1 → v2.0,<br/>4단계로.</h2>
+    <p style="max-width:60ch; font-size:15px; margin-top:14px;">
+      각 단계는 <b>독립적으로 출시 가능</b>. v1 의 단일 HTML · 무서버 제약은 끝까지 유지.
+    </p>
+
+    <div class="roadmap">
+      <div class="phase p1">
+        <div class="ph-n">PHASE 01</div>
+        <div class="ph-t">기반 보강</div>
+        <div class="ph-d">~2 weeks · v1.1</div>
+        <ul>
+          <li>한국어 별칭 사전 (~120개)</li>
+          <li>최근 사용 검색 풀</li>
+          <li>JSON 백업 export/import</li>
+          <li>휴식 타이머 + Wake Lock</li>
+          <li>Quick Repeat (지난 루틴 복제)</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="ph-n">PHASE 02</div>
+        <div class="ph-t">데이터 격상</div>
+        <div class="ph-d">~3 weeks · v1.5</div>
+        <ul>
+          <li>IndexedDB blob store 마이그레이션</li>
+          <li>스키마 v2: 세트 배열 + measure</li>
+          <li>중량 / 시간 / 거리 / RPE 입력</li>
+          <li>슈퍼셋 그룹화</li>
+          <li>드래그 재정렬</li>
+          <li><b>ExerciseRow primitive 통합</b> (3 density)</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="ph-n">PHASE 03</div>
+        <div class="ph-t">진척도 / 모멘텀</div>
+        <div class="ph-d">~2 weeks · v1.8</div>
+        <ul>
+          <li>대시보드: 히트맵·연속 기록·주간 볼륨</li>
+          <li>1RM 추정 + PR 자동 감지</li>
+          <li>근육군 밸런스 차트</li>
+          <li>실행 모드 (세션 UI)</li>
+          <li><b>IA 재구성</b>: 「오늘」 탭 신설, 4-탭 하단 네비</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="ph-n">PHASE 04</div>
+        <div class="ph-t">출력 / 공유</div>
+        <div class="ph-d">~2 weeks · v2.0</div>
+        <ul>
+          <li>반응형 시트 (360–720px clamp)</li>
+          <li>A4 다중 페이지 PDF 인쇄</li>
+          <li>9:16 스토리 / 1:1 카드 포맷</li>
+          <li>QR deeplink (단일 HTML 내 진입)</li>
+          <li>다크 모드</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  RISKS  ───────────────────────── -->
+<section data-screen-label="07 Risks">
+  <div class="wrap">
+    <div class="eyebrow">§ 06 — Open Questions / Risks</div>
+    <h2 class="serif" style="max-width:18ch;">결정해야 할 것들.</h2>
+
+    <div style="margin-top:48px; display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+      <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+        <h4 style="color:var(--ink); font-size:14px; letter-spacing:0; text-transform:none; font-family:inherit; margin-bottom:8px;">시드 데이터 라이선스</h4>
+        <p style="font-size:13px;">hasaneyldrm/exercises-dataset 는 비상업 한정. 상업화 시점에 ExerciseDB Pro / wger-data 검토.
+          그 전까지 「출처 명시 + 비상업」 워터마크를 시드 항목 카드 하단에 노출할지?</p>
+      </div>
+      <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+        <h4 style="color:var(--ink); font-size:14px; letter-spacing:0; text-transform:none; font-family:inherit; margin-bottom:8px;">시드 이미지 핫링크</h4>
+        <p style="font-size:13px;">raw.githubusercontent.com 가용성에 의존. CORS·rate-limit 발생 시 사용자 경험이 즉시 무너진다.
+          미러링 (Cloudflare R2 / 무료 IPFS) vs 「내 라이브러리 우선」 정책 강화 중 선택 필요.</p>
+      </div>
+      <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+        <h4 style="color:var(--ink); font-size:14px; letter-spacing:0; text-transform:none; font-family:inherit; margin-bottom:8px;">「간단 모드」 보존</h4>
+        <p style="font-size:13px;">중량·RPE 도입은 헬스 사용자에는 필수, 홈트 사용자에는 과잉.
+          기본은 reps 만 표시, 「상세 입력」 토글로 weight/RPE 펼침 — 이 토글의 디폴트를 사용자 첫 운동 분류에서 추론할지?</p>
+      </div>
+      <div class="pane next" style="background:var(--bg-card); border-style:solid;">
+        <h4 style="color:var(--ink); font-size:14px; letter-spacing:0; text-transform:none; font-family:inherit; margin-bottom:8px;">단일 HTML 의 한계선</h4>
+        <p style="font-size:13px;">대시보드·차트가 들어가면 인라인 JS 가 ~80KB 를 초과한다.
+          Phase 03 시점에 「단일 HTML」 원칙을 유지할지, 「폴더 단위 정적 사이트」로 완화할지 결정해야 함.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="ft-grid">
+      <div>
+        <h4>Document</h4>
+        <p>workout / design audit · v1.0<br/>대상: DESIGN.md (§1–§9)<br/>2026.05.08</p>
+      </div>
+      <div>
+        <h4>Method</h4>
+        <p>휴리스틱 평가 + 데이터 모델 검토 + 사용 시나리오 워크스루.<br/>모든 제안은 「단일 HTML · 무서버」 제약 내에서 구현 가능 범위.</p>
+      </div>
+      <div>
+        <h4>Next step</h4>
+        <p>Phase 01 5개 항목을 v1.1 로 묶어 1주 스프린트 착수 권장.<br/>그 결과를 보고 Phase 02 IndexedDB 마이그레이션 일정 조정.</p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
