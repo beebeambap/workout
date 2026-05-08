@@ -502,8 +502,57 @@
         </div>
       </div>
       <div style="margin-top:10px;">
+        <label>루틴 용도</label>
+        <div style="display:flex; gap:16px; margin-top:4px; flex-wrap:wrap;">
+          <label style="display:inline-flex; align-items:center; gap:6px; font-weight:normal; margin:0;">
+            <input type="radio" name="rt-purpose" value="record" checked style="width:auto;">
+            <span>📅 기록용 (실제 수행)</span>
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-weight:normal; margin:0;">
+            <input type="radio" name="rt-purpose" value="share" style="width:auto;">
+            <span>📋 공유용 (계획·공유)</span>
+          </label>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
         <label>메모 (선택)</label>
         <textarea id="rt-memo" placeholder="컨디션, 메모 등"></textarea>
+      </div>
+      <div style="margin-top:10px;">
+        <label style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+          <input type="checkbox" id="rt-cardio-toggle" style="width:auto;">
+          <span>🏃 유산소 포함</span>
+        </label>
+      </div>
+      <div id="rt-cardio-fields" style="display:none; margin-top:8px; padding:12px; border:1px dashed var(--border); border-radius:8px; background:var(--ph);">
+        <div class="row">
+          <div>
+            <label>종류</label>
+            <select id="rt-cardio-type">
+              <option value="">선택</option>
+              <option value="달리기">달리기</option>
+              <option value="자전거">자전거</option>
+              <option value="등산">등산</option>
+              <option value="수영">수영</option>
+              <option value="걷기">걷기</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div>
+            <label>시간 (분)</label>
+            <input type="number" id="rt-cardio-duration" min="0" step="1" inputmode="numeric" placeholder="예: 30" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label>거리 (km)</label>
+            <input type="number" id="rt-cardio-distance" min="0" step="0.1" inputmode="decimal" placeholder="예: 5.0" />
+          </div>
+          <div>
+            <label>메모</label>
+            <input type="text" id="rt-cardio-notes" maxlength="80" placeholder="예: 한강 코스" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1184,7 +1233,18 @@ let currentRoutine = newRoutine();
 let editingRoutineId = null; // 기존 루틴 편집 시 해당 id
 
 function newRoutine() {
-  return { id: null, date: todayStr(), title: "", category: "", subCategory: "", memo: "", items: [], createdAt: null };
+  return {
+    id: null,
+    date: todayStr(),
+    title: "",
+    category: "",
+    subCategory: "",
+    purpose: "record",
+    memo: "",
+    items: [],
+    cardio: null,
+    createdAt: null,
+  };
 }
 function todayStr() {
   const d = new Date();
@@ -1433,6 +1493,41 @@ const rtCount = document.getElementById("rt-count");
 rtCategory.addEventListener("change", () => { currentRoutine.category = rtCategory.value; });
 rtSubCategory.addEventListener("change", () => { currentRoutine.subCategory = rtSubCategory.value; });
 
+// 루틴 용도 라디오
+document.querySelectorAll('input[name="rt-purpose"]').forEach((r) => {
+  r.addEventListener("change", (e) => { currentRoutine.purpose = e.target.value; });
+});
+
+// 유산소 토글 + 필드
+const rtCardioToggle  = document.getElementById("rt-cardio-toggle");
+const rtCardioFields  = document.getElementById("rt-cardio-fields");
+const rtCardioType    = document.getElementById("rt-cardio-type");
+const rtCardioDur     = document.getElementById("rt-cardio-duration");
+const rtCardioDist    = document.getElementById("rt-cardio-distance");
+const rtCardioNotes   = document.getElementById("rt-cardio-notes");
+
+function emptyCardio() { return { type: "", durationMin: null, distanceKm: null, notes: "" }; }
+
+function syncCurrentCardio() {
+  if (!rtCardioToggle.checked) { currentRoutine.cardio = null; return; }
+  const dur  = parseFloat(rtCardioDur.value);
+  const dist = parseFloat(rtCardioDist.value);
+  currentRoutine.cardio = {
+    type:        rtCardioType.value || "",
+    durationMin: Number.isFinite(dur)  && dur  >= 0 ? dur  : null,
+    distanceKm:  Number.isFinite(dist) && dist >= 0 ? dist : null,
+    notes:       rtCardioNotes.value || "",
+  };
+}
+
+rtCardioToggle.addEventListener("change", () => {
+  rtCardioFields.style.display = rtCardioToggle.checked ? "" : "none";
+  if (rtCardioToggle.checked && !currentRoutine.cardio) currentRoutine.cardio = emptyCardio();
+  syncCurrentCardio();
+});
+[rtCardioType, rtCardioNotes].forEach((el) => el.addEventListener("input", syncCurrentCardio));
+[rtCardioDur, rtCardioDist].forEach((el) => el.addEventListener("input", syncCurrentCardio));
+
 const rtFilterCat = document.getElementById("rt-filter-cat");
 const rtFilterEq  = document.getElementById("rt-filter-eq");
 
@@ -1680,8 +1775,10 @@ document.getElementById("rt-save").addEventListener("click", () => {
         title: currentRoutine.title.trim(),
         category: currentRoutine.category || "",
         subCategory: currentRoutine.subCategory || "",
+        purpose: currentRoutine.purpose || "record",
         memo: currentRoutine.memo,
         items: currentRoutine.items,
+        cardio: currentRoutine.cardio || null,
         updatedAt: Date.now(),
       };
     }
@@ -1692,8 +1789,10 @@ document.getElementById("rt-save").addEventListener("click", () => {
       title: currentRoutine.title.trim(),
       category: currentRoutine.category || "",
       subCategory: currentRoutine.subCategory || "",
+      purpose: currentRoutine.purpose || "record",
       memo: currentRoutine.memo,
       items: currentRoutine.items,
+      cardio: currentRoutine.cardio || null,
       createdAt: Date.now(),
     });
   }
@@ -1713,6 +1812,15 @@ function resetRoutineBuilder() {
   rtSubCategory.value = "";
   rtMemo.value = "";
   rtSearch.value = "";
+  // 용도 라디오 초기화
+  document.querySelectorAll('input[name="rt-purpose"]').forEach((r) => { r.checked = (r.value === "record"); });
+  // 유산소 필드 초기화
+  rtCardioToggle.checked = false;
+  rtCardioFields.style.display = "none";
+  rtCardioType.value = "";
+  rtCardioDur.value  = "";
+  rtCardioDist.value = "";
+  rtCardioNotes.value = "";
   document.getElementById("editing-banner").classList.remove("open");
   renderRoutineItems();
 }
@@ -1733,7 +1841,9 @@ histFilterCat.addEventListener("change", renderHistory);
 function renderHistory() {
   const q = (histSearch.value || "").toLowerCase().trim();
   const fCat = histFilterCat.value;
-  const list = routines
+  // 공유용 서브탭은 purpose === "share" 만 표시 (legacy 미지정 → record 로 간주)
+  const shareList = routines.filter((r) => (r.purpose || "record") === "share");
+  const list = shareList
     .filter((r) => {
       if (q && !(r.title.toLowerCase().includes(q) || r.date.includes(q))) return false;
       if (fCat) {
@@ -1743,15 +1853,15 @@ function renderHistory() {
       return true;
     })
     .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
-  histCount.textContent = routines.length;
+  histCount.textContent = shareList.length;
   if (list.length === 0) {
-    histList.innerHTML = `<div class="empty">${routines.length === 0 ? "저장된 루틴이 없습니다." : "검색 결과가 없습니다."}</div>`;
+    histList.innerHTML = `<div class="empty">${shareList.length === 0 ? "저장된 공유용 루틴이 없습니다. (루틴 만들기에서 '📋 공유용'으로 저장)" : "검색 결과가 없습니다."}</div>`;
     return;
   }
   histList.innerHTML = list.map((r) => `
     <div class="history-row" data-id="${r.id}">
       <div class="meta">
-        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span>${r.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(r.category)}</span>` : ""}</div>
+        <div class="title">${escapeHtml(r.title)} <span class="badge">${r.items.length}개</span>${r.category ? ` <span class="badge" style="background:#e6f4ea;color:#2e7d32;">${escapeHtml(r.category)}</span>` : ""}${r.subCategory ? ` <span class="badge" style="background:var(--ph);color:var(--muted);">+${escapeHtml(r.subCategory)}</span>` : ""}</div>
         <div class="sub">${r.date}</div>
       </div>
       <div class="top-actions">
@@ -1803,7 +1913,10 @@ function ymd(d) {
 
 function computeStreak() {
   const dateSet = new Set();
-  for (const r of routines) if (r.date) dateSet.add(r.date);
+  for (const r of routines) {
+    if ((r.purpose || "record") !== "record") continue;
+    if (r.date) dateSet.add(r.date);
+  }
   if (dateSet.size === 0) return { current: 0, longest: 0 };
 
   const dates = [...dateSet].sort();
@@ -1887,6 +2000,8 @@ function buildDateMap(year, month) {
   const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
   const map = {};
   for (const r of routines) {
+    // 캘린더·통계는 기록용만 (purpose 미지정은 legacy → record 로 간주)
+    if ((r.purpose || "record") !== "record") continue;
     if (r.date && r.date.startsWith(prefix)) {
       if (!map[r.date]) map[r.date] = [];
       map[r.date].push(r);
@@ -1992,6 +2107,12 @@ function renderMonthlyStats(dateMap) {
   let totalSets = 0;
   const exCount = {};
 
+  // 유산소 집계
+  let cardioCount = 0;
+  let cardioMin   = 0;
+  let cardioKm    = 0;
+  const cardioByType = {};
+
   for (const r of allR) {
     const c = r.category || "기타";
     catCount[c] = (catCount[c] || 0) + 1;
@@ -2001,9 +2122,17 @@ function renderMonthlyStats(dateMap) {
       const nm = res ? res.name : "(삭제됨)";
       exCount[nm] = (exCount[nm] || 0) + 1;
     }
+    if (r.cardio) {
+      cardioCount++;
+      if (Number.isFinite(r.cardio.durationMin)) cardioMin += r.cardio.durationMin;
+      if (Number.isFinite(r.cardio.distanceKm))  cardioKm  += r.cardio.distanceKm;
+      const t = r.cardio.type || "기타";
+      cardioByType[t] = (cardioByType[t] || 0) + 1;
+    }
   }
 
   const topEx = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0];
+  const topCardio = Object.entries(cardioByType).sort((a, b) => b[1] - a[1])[0];
 
   el.innerHTML = `
     <div class="stat-card"><div class="stat-num">${sessionCount}</div><div class="stat-label">운동 세션</div></div>
@@ -2012,6 +2141,12 @@ function renderMonthlyStats(dateMap) {
     <div class="stat-card streak"><div class="stat-num">${streak.current}</div><div class="stat-label">현재 연속 🔥</div></div>
     <div class="stat-card streak"><div class="stat-num">${streak.longest}</div><div class="stat-label">최장 연속</div></div>
     ${topEx ? `<div class="stat-card"><div class="stat-num stat-num-sm" style="font-size:13px;line-height:1.3;">${escapeHtml(topEx[0])}</div><div class="stat-label">최다 운동 (${topEx[1]}회)</div></div>` : ""}
+    ${cardioCount > 0 ? `
+      <div class="stat-card"><div class="stat-num">${cardioCount}</div><div class="stat-label">🏃 유산소 횟수</div></div>
+      ${cardioMin > 0 ? `<div class="stat-card"><div class="stat-num">${cardioMin}</div><div class="stat-label">유산소 분</div></div>` : ""}
+      ${cardioKm  > 0 ? `<div class="stat-card"><div class="stat-num">${cardioKm.toFixed(1)}</div><div class="stat-label">유산소 km</div></div>` : ""}
+      ${topCardio ? `<div class="stat-card"><div class="stat-num stat-num-sm" style="font-size:13px;line-height:1.3;">${escapeHtml(topCardio[0])}</div><div class="stat-label">주요 유산소 (${topCardio[1]}회)</div></div>` : ""}
+    ` : ""}
   `;
 
   const sortedCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]);
@@ -2041,14 +2176,25 @@ function openDayDetail(dateStr, rList) {
       const res = resolveExercise(it);
       const nm = res ? escapeHtml(res.name) : "(삭제된 동작)";
       const unit = it.unit || "회";
-      return `<li>${nm} — ${it.reps}${unit} × ${it.sets}세트</li>`;
+      const memoTxt = it.memo ? ` <span style="color:var(--muted);font-size:11px;">— ${escapeHtml(it.memo)}</span>` : "";
+      return `<li>${nm} — ${it.reps}${unit} × ${it.sets}세트${memoTxt}</li>`;
     }).join("");
+    let cardioHtml = "";
+    if (r.cardio) {
+      const parts = [];
+      if (r.cardio.type)        parts.push(escapeHtml(r.cardio.type));
+      if (r.cardio.durationMin) parts.push(`${r.cardio.durationMin}분`);
+      if (r.cardio.distanceKm)  parts.push(`${r.cardio.distanceKm}km`);
+      if (r.cardio.notes)       parts.push(escapeHtml(r.cardio.notes));
+      cardioHtml = `<p style="margin:6px 0 0; font-size:13px; color:var(--accent);">🏃 ${parts.join(" · ")}</p>`;
+    }
     return `
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
           <div>
             <strong>${escapeHtml(r.title)}</strong>
             ${r.category ? `<span class="badge" style="background:${catColor}33;color:${catColor};">${escapeHtml(r.category)}</span>` : ""}
+            ${r.subCategory ? `<span class="badge" style="background:var(--ph);color:var(--muted);">+${escapeHtml(r.subCategory)}</span>` : ""}
             <span class="badge">${(r.items || []).length}개</span>
           </div>
           <div style="display:flex;gap:6px;">
@@ -2057,7 +2203,8 @@ function openDayDetail(dateStr, rList) {
           </div>
         </div>
         ${r.memo ? `<p style="font-size:12px;color:var(--muted);margin:0 0 8px;">${escapeHtml(r.memo)}</p>` : ""}
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8;">${exHtml || "<li>(동작 없음)</li>"}</ul>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8;">${exHtml || (r.cardio ? "" : "<li>(동작 없음)</li>")}</ul>
+        ${cardioHtml}
       </div>`;
   }).join("");
 
@@ -2092,8 +2239,10 @@ function loadRoutine(id) {
     title: r.title,
     category: r.category || "",
     subCategory: r.subCategory || "",
+    purpose: r.purpose || "record",
     memo: r.memo || "",
     items: r.items.map((it) => ({ ...it })),
+    cardio: r.cardio ? { ...r.cardio } : null,
     createdAt: r.createdAt,
   };
   editingRoutineId = r.id;
@@ -2102,6 +2251,21 @@ function loadRoutine(id) {
   rtCategory.value = currentRoutine.category;
   rtSubCategory.value = currentRoutine.subCategory;
   rtMemo.value = currentRoutine.memo;
+  // 용도 라디오
+  document.querySelectorAll('input[name="rt-purpose"]').forEach((rd) => { rd.checked = (rd.value === currentRoutine.purpose); });
+  // 유산소 필드
+  if (currentRoutine.cardio) {
+    rtCardioToggle.checked = true;
+    rtCardioFields.style.display = "";
+    rtCardioType.value  = currentRoutine.cardio.type || "";
+    rtCardioDur.value   = currentRoutine.cardio.durationMin != null ? currentRoutine.cardio.durationMin : "";
+    rtCardioDist.value  = currentRoutine.cardio.distanceKm  != null ? currentRoutine.cardio.distanceKm  : "";
+    rtCardioNotes.value = currentRoutine.cardio.notes || "";
+  } else {
+    rtCardioToggle.checked = false;
+    rtCardioFields.style.display = "none";
+    rtCardioType.value = ""; rtCardioDur.value = ""; rtCardioDist.value = ""; rtCardioNotes.value = "";
+  }
   document.getElementById("editing-banner-text").textContent = `「${r.title}」(${r.date}) 을(를) 편집 중입니다. 저장하면 기존 기록을 덮어씁니다.`;
   document.getElementById("editing-banner").classList.add("open");
   renderRoutineItems();
