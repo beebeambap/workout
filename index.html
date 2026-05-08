@@ -304,8 +304,9 @@
   .cal-day.other-month { background: var(--ph); opacity: 0.35; pointer-events: none; }
   .cal-day-num { font-size: 12px; font-weight: 700; display: block; margin-bottom: 3px; }
   .cal-day.today .cal-day-num { color: var(--accent); }
-  .cal-dots { display: flex; flex-wrap: wrap; gap: 3px; }
-  .cal-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .cal-cats { font-size: 10px; color: var(--text); margin-top: 2px; line-height: 1.3; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-day.lvl-3 .cal-cats,
+  .cal-day.lvl-4 .cal-cats { color: rgba(255,255,255,0.95); }
   /* 히트맵 강도 (총 세트 수 기준) */
   .cal-day.lvl-1 { background: color-mix(in srgb, var(--accent) 14%, #fff); }
   .cal-day.lvl-2 { background: color-mix(in srgb, var(--accent) 32%, #fff); }
@@ -313,13 +314,11 @@
   .cal-day.lvl-4 { background: color-mix(in srgb, var(--accent) 80%, #fff); }
   .cal-day.lvl-3 .cal-day-num,
   .cal-day.lvl-4 .cal-day-num { color: #fff; }
-  .cal-day.lvl-3 .cal-dot,
-  .cal-day.lvl-4 .cal-dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.65); }
   @media (max-width: 640px) {
     .cal-day { min-height: 44px; padding: 4px 3px; }
     .cal-day.today { padding: 3px 2px; }
     .cal-day-num { font-size: 10px; margin-bottom: 2px; }
-    .cal-dot { width: 6px; height: 6px; }
+    .cal-cats { font-size: 9px; }
     .cal-header-cell { font-size: 10px; padding: 4px 1px; }
     .cal-day.quick-start::before { display: none; }
   }
@@ -1899,11 +1898,12 @@ let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
 let calCategoryFilter = "";
 
-function levelForSets(totalSets) {
+function levelForSets(totalSets, thresholds) {
   if (totalSets <= 0) return 0;
-  if (totalSets <= 9)  return 1;
-  if (totalSets <= 19) return 2;
-  if (totalSets <= 29) return 3;
+  const t = thresholds || { t1: 9, t2: 19, t3: 29 };
+  if (totalSets <= t.t1) return 1;
+  if (totalSets <= t.t2) return 2;
+  if (totalSets <= t.t3) return 3;
   return 4;
 }
 
@@ -2024,6 +2024,23 @@ function filterDateMap(map, catFilter) {
   return out;
 }
 
+function computeHeatmapThresholds() {
+  // 전체 record 루틴 기준 일별 총 세트 수 분포에서 25/50/75 백분위
+  const dailySets = {};
+  for (const r of routines) {
+    if ((r.purpose || "record") !== "record") continue;
+    if (!r.date) continue;
+    const total = (r.items || []).reduce((s, it) => s + (it.sets || 1), 0);
+    if (total > 0) dailySets[r.date] = (dailySets[r.date] || 0) + total;
+  }
+  const values = Object.values(dailySets).sort((a, b) => a - b);
+  if (values.length < 20) {
+    return { mode: "fixed", t1: 9, t2: 19, t3: 29 };
+  }
+  const pct = (p) => values[Math.max(0, Math.min(values.length - 1, Math.floor(values.length * p)))];
+  return { mode: "relative", t1: pct(0.25), t2: pct(0.50), t3: pct(0.75) };
+}
+
 function renderCalendar() {
   const today = new Date();
   const todayStr = ymd(today);
@@ -2033,6 +2050,7 @@ function renderCalendar() {
   const dateMap    = filterDateMap(dateMapAll, calCategoryFilter);
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
+  const thresholds = computeHeatmapThresholds();
 
   const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
   let html = DAYS.map((d) => `<div class="cal-header-cell">${d}</div>`).join("");
@@ -2053,12 +2071,16 @@ function renderCalendar() {
     for (const r of rList) {
       for (const it of (r.items || [])) totalSets += (it.sets || 1);
     }
-    const lvl = levelForSets(totalSets);
+    const lvl = levelForSets(totalSets, thresholds);
 
-    const dots = rList.map((r) => {
-      const c = CAT_COLORS[r.category || ""] || CAT_COLORS["기타"];
-      return `<span class="cal-dot" style="background:${c};" title="${escapeHtml(r.category || "기타")}"></span>`;
-    }).join("");
+    // 메인 카테고리 이름 (중복 제거, 순서 유지)
+    const seen = new Set();
+    const cats = [];
+    for (const r of rList) {
+      const c = r.category || "기타";
+      if (!seen.has(c)) { seen.add(c); cats.push(c); }
+    }
+    const catText = cats.join("·");
 
     const classes = ["cal-day"];
     if (isToday)  classes.push("today");
@@ -2067,12 +2089,12 @@ function renderCalendar() {
     else if (!isFuture && !hasAny) classes.push("quick-start");
 
     const titleAttr = hasMatch
-      ? ` title="${rList.length}개 세션 · 총 ${totalSets}세트"`
+      ? ` title="${rList.length}개 세션 · 총 ${totalSets}세트${thresholds.mode === "relative" ? " (상대)" : ""}"`
       : (!isFuture && !hasAny ? ` title="${ds} 새 기록 만들기"` : "");
 
     html += `<div class="${classes.join(" ")}" data-date="${ds}"${titleAttr}>
       <span class="cal-day-num">${d}</span>
-      <div class="cal-dots">${dots}</div>
+      ${catText ? `<div class="cal-cats">${escapeHtml(catText)}</div>` : ""}
     </div>`;
   }
 
@@ -2969,7 +2991,8 @@ function updateSettingsTab() {
   if (!modeVal || !actions) return;
 
   if (firebaseUser) {
-    modeVal.innerHTML = `<span class="settings-mode-badge auth-on">🔑 로그인됨</span>`;
+    const dn = getDisplayName();
+    modeVal.innerHTML = `<span class="settings-mode-badge auth-on">🔑 ${escapeHtml(dn)}</span>`;
     actions.innerHTML = `<button class="ghost" id="settings-logout-btn" type="button">로그아웃</button>`;
     document.getElementById("settings-logout-btn").addEventListener("click", handleLogout);
     emailRow.style.display = "";
@@ -3000,6 +3023,17 @@ function flashProfileSaved() {
   setTimeout(() => { el.textContent = ""; }, 2000);
 }
 
+function getDisplayName() {
+  const p = loadProfile();
+  if (p && p.name) return p.name + "님";
+  if (firebaseUser && firebaseUser.email) {
+    // 이메일 prefix 만 (가독성). @ 앞만 표시
+    const at = firebaseUser.email.indexOf("@");
+    return at > 0 ? firebaseUser.email.slice(0, at) : firebaseUser.email;
+  }
+  return "(이메일 없음)";
+}
+
 function initSettings() {
   const nameEl = document.getElementById("profile-name");
   const memoEl = document.getElementById("profile-memo");
@@ -3010,6 +3044,7 @@ function initSettings() {
   document.getElementById("profile-save").addEventListener("click", () => {
     saveProfile({ name: nameEl.value.trim(), memo: memoEl.value.trim() });
     flashProfileSaved();
+    updateAuthUI();   // 헤더 닉네임 즉시 갱신
   });
   document.getElementById("profile-reset").addEventListener("click", () => {
     if (!confirm("내 정보를 초기화할까요?")) return;
@@ -3017,6 +3052,7 @@ function initSettings() {
     memoEl.value = "";
     saveProfile({ name: "", memo: "" });
     flashProfileSaved();
+    updateAuthUI();
   });
 
   updateSettingsTab();
@@ -3083,7 +3119,8 @@ function updateAuthUI() {
     loginBtn.style.display  = "none";
     guestPill.style.display = "none";
     userPill.style.display  = "";
-    emailEl.textContent = firebaseUser.email || "(이메일 없음)";
+    emailEl.textContent = getDisplayName();
+    emailEl.title = firebaseUser.email || "";
     setAuthDot("ok");
   } else if (getUserMode() === "guest") {
     loginBtn.style.display  = "none";
