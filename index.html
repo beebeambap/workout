@@ -87,8 +87,52 @@
     .auth-email { max-width: 90px; font-size: 11px; }
     .auth-pill { padding: 3px 3px 3px 8px; }
   }
-  nav button { background: transparent; border: 1px solid var(--border); padding: 8px 14px; border-radius: 999px; margin-left: 6px; cursor: pointer; color: var(--text); }
-  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  nav { display: flex; gap: 24px; align-items: baseline; flex-wrap: wrap; }
+  nav button {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 6px 0;
+    margin: 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    font-family: inherit;
+    letter-spacing: -0.005em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  nav button::before {
+    content: attr(data-num);
+    font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    opacity: 0.55;
+    transition: color 0.15s ease, opacity 0.15s ease;
+  }
+  nav button:hover { color: var(--text); }
+  nav button:hover::before { opacity: 0.9; color: var(--text); }
+  nav button.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+  nav button.active::before {
+    color: var(--accent);
+    opacity: 1;
+  }
+  @media (max-width: 640px) {
+    nav { gap: 14px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; -ms-overflow-style: none; scrollbar-width: none; }
+    nav::-webkit-scrollbar { display: none; }
+    nav button { font-size: 13px; flex-shrink: 0; }
+    nav button::before { font-size: 9px; }
+  }
   main { max-width: 1080px; margin: 0 auto; padding: 20px; }
   section.tab { display: none; }
   section.tab.active { display: block; }
@@ -326,8 +370,8 @@
 
   /* 기록 내역 서브탭 */
   .subtab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
-  .subtab-btn { background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 9px 16px; margin-bottom: -2px; cursor: pointer; font-size: 14px; color: var(--muted); white-space: nowrap; }
-  .subtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .subtab-btn { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 9px 16px; margin-bottom: -2px; cursor: pointer; font-size: 14px; color: var(--muted); white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
+  .subtab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
   .subtab-btn:hover:not(.active) { color: var(--text); }
 
   /* 캘린더 */
@@ -437,11 +481,11 @@
     </div>
     <select id="palette-select" aria-label="테마"></select>
     <nav>
-      <button data-tab="library" class="active">내 라이브러리</button>
-      <button data-tab="routine">루틴 만들기</button>
-      <button data-tab="history">기록 내역</button>
-      <button data-tab="dictionary">운동 사전</button>
-      <button data-tab="settings">⚙ 설정</button>
+      <button data-tab="library" data-num="01" class="active">라이브러리</button>
+      <button data-tab="routine" data-num="02">루틴</button>
+      <button data-tab="history" data-num="03">기록</button>
+      <button data-tab="dictionary" data-num="04">사전</button>
+      <button data-tab="settings" data-num="05">설정</button>
     </nav>
   </div>
 </header>
