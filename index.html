@@ -34,6 +34,8 @@
   .auth-area { display: flex; align-items: center; }
   .auth-btn { background: var(--accent); color: #fff; border: 0; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 600; }
   .auth-btn:hover { filter: brightness(1.1); }
+  .auth-guest-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--ph); color: var(--muted); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); cursor: pointer; font-family: inherit; }
+  .auth-guest-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .auth-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); padding: 4px 4px 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; max-width: 220px; }
   .auth-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; flex: 0 0 auto; }
   .auth-status-dot.syncing { background: #ffc107; animation: pulse 1.2s ease-in-out infinite; }
@@ -344,6 +346,7 @@
   <div class="header-right">
     <div class="auth-area" id="auth-area" style="display:none;">
       <button class="auth-btn" id="auth-login-btn" type="button">🔑 로그인</button>
+      <button class="auth-guest-pill" id="auth-guest-pill" type="button" style="display:none;" title="로그인하기">👤 게스트</button>
       <span class="auth-pill" id="auth-user-pill" style="display:none;">
         <span class="auth-status-dot" id="auth-status-dot" title=""></span>
         <span class="auth-email" id="auth-email-text"></span>
@@ -767,6 +770,28 @@
     <button class="modal-close-x" id="day-detail-close" aria-label="닫기">×</button>
     <h3 id="day-detail-title" style="margin-right: 28px;"></h3>
     <div id="day-detail-body" style="margin-top: 12px;"></div>
+  </div>
+</div>
+
+<!-- 첫 방문 환영 모달 -->
+<div class="modal-bg" id="welcome-modal">
+  <div class="modal" style="max-width:380px; text-align:center;">
+    <h3 style="margin: 0 0 8px;">환영합니다 👋</h3>
+    <p class="hint" style="margin: 0 0 22px; font-size: 13px;">
+      운동 기록기를 어떻게 사용하시겠어요?
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button type="button" class="primary" id="welcome-choice-login" style="padding:14px 18px; font-size:14px; line-height:1.4;">
+        🔑 로그인 — 여러 기기에서 자동 동기화
+      </button>
+      <button type="button" class="ghost" id="welcome-choice-guest" style="padding:14px 18px; font-size:14px; line-height:1.4;">
+        👤 게스트로 시작 — 이 기기에만 저장
+      </button>
+    </div>
+    <p class="hint" style="font-size: 11px; color: var(--muted); margin: 18px 0 0; line-height: 1.6;">
+      게스트 모드는 즉시 시작할 수 있지만, 브라우저 캐시 삭제 시 데이터가 사라집니다.<br>
+      우상단 메뉴에서 언제든 전환 가능합니다.
+    </p>
   </div>
 </div>
 
@@ -2306,20 +2331,40 @@ function shouldShowReminder() {
   if (!cfg.enabled) return false;
   if (Date.now() < (cfg.snoozeUntil || 0)) return false;
   if (exercises.length === 0 && routines.length === 0 && Object.keys(seedOverrides).length === 0) return false;
+  // 로그인됨 → 자동 동기화가 처리 (Phase 1B 에서 별도 상태 배지로 대체)
+  if (firebaseUser) return false;
+  // Firebase 사용 가능 + 미로그인 → 항상 표시 (로그인 권장)
+  if (firebaseAuth) return true;
+  // Firebase 미설정 → 기존 백업 알림 (lastExport 기반)
   const last = getLastExport();
-  if (!last) return true; // 한 번도 안 했으면 권장
+  if (!last) return true;
   return daysSince(last) >= cfg.thresholdDays;
 }
 
 function refreshReminderUI() {
   const banner = document.getElementById("reminder-banner");
   const textEl = document.getElementById("reminder-text");
-  if (banner && textEl) {
+  const titleEl = banner ? banner.querySelector("strong") : null;
+  const nowBtn = document.getElementById("reminder-now");
+
+  if (banner && textEl && titleEl && nowBtn) {
     if (shouldShowReminder()) {
-      const last = getLastExport();
-      textEl.textContent = last
-        ? `마지막 백업이 ${daysSince(last)}일 전입니다. 데이터 손실 대비를 위해 백업을 권장합니다.`
-        : `아직 백업한 적이 없습니다. 데이터 손실 대비를 위해 첫 백업을 권장합니다.`;
+      if (firebaseAuth && !firebaseUser) {
+        // 로그인 권장 모드
+        titleEl.textContent = "💡 로그인 권장";
+        textEl.textContent  = "여러 기기에서 자동 동기화되고 데이터가 안전하게 보관됩니다.";
+        nowBtn.textContent  = "🔑 로그인";
+        nowBtn.dataset.action = "login";
+      } else {
+        // Firebase 미사용 + 미백업 시 기존 백업 권장
+        const last = getLastExport();
+        titleEl.textContent = "백업 권장";
+        textEl.textContent  = last
+          ? `마지막 백업이 ${daysSince(last)}일 전입니다. 데이터 손실 대비를 위해 백업을 권장합니다.`
+          : `아직 백업한 적이 없습니다. 데이터 손실 대비를 위해 첫 백업을 권장합니다.`;
+        nowBtn.textContent  = "지금 백업";
+        nowBtn.dataset.action = "backup";
+      }
       banner.classList.add("open");
     } else {
       banner.classList.remove("open");
@@ -2331,7 +2376,13 @@ function refreshReminderUI() {
 
 function initReminder() {
   const banner = document.getElementById("reminder-banner");
-  document.getElementById("reminder-now").addEventListener("click", () => exportAllData());
+  document.getElementById("reminder-now").addEventListener("click", (e) => {
+    if (e.currentTarget.dataset.action === "login") {
+      openAuthModal();
+    } else {
+      exportAllData();
+    }
+  });
   document.getElementById("reminder-snooze").addEventListener("click", () => {
     const cfg = getReminderConfig();
     cfg.snoozeUntil = Date.now() + 7 * 24 * 3600 * 1000;
@@ -2567,6 +2618,73 @@ function initAiPromptModal() {
   });
 }
 
+// ============ 사용자 모드 (Guest / Auth) ============
+const USER_MODE_KEY = "workout.userMode";
+let authStateInitialized = false;
+
+function getUserMode()  { return localStorage.getItem(USER_MODE_KEY) || null; }
+function setUserMode(m) {
+  if (m == null) localStorage.removeItem(USER_MODE_KEY);
+  else            localStorage.setItem(USER_MODE_KEY, m);
+}
+
+function hasExistingData() {
+  return (typeof exercises !== "undefined" && exercises.length > 0) ||
+         (typeof routines  !== "undefined" && routines.length  > 0);
+}
+
+function openWelcomeModal()  { document.getElementById("welcome-modal").classList.add("open"); }
+function closeWelcomeModal() { document.getElementById("welcome-modal").classList.remove("open"); }
+
+function chooseLogin() {
+  closeWelcomeModal();
+  setUserMode("auth");
+  updateAuthUI();
+  openAuthModal();
+}
+
+function chooseGuest() {
+  closeWelcomeModal();
+  setUserMode("guest");
+  updateAuthUI();
+  refreshReminderUI();
+}
+
+function evaluateUserMode() {
+  if (firebaseUser) {
+    if (getUserMode() !== "auth") setUserMode("auth");
+    updateAuthUI();
+    refreshReminderUI();
+    return;
+  }
+  if (getUserMode()) {
+    updateAuthUI();
+    refreshReminderUI();
+    return;
+  }
+  // 결정 없음
+  if (hasExistingData()) {
+    // 기존 사용자: 묵시적 게스트
+    setUserMode("guest");
+    updateAuthUI();
+    refreshReminderUI();
+    return;
+  }
+  // 진짜 첫 방문 + Firebase 사용 가능 → 환영 모달
+  if (firebaseAuth) {
+    openWelcomeModal();
+  } else {
+    setUserMode("guest");
+    updateAuthUI();
+  }
+}
+
+function initWelcome() {
+  document.getElementById("welcome-choice-login").addEventListener("click", chooseLogin);
+  document.getElementById("welcome-choice-guest").addEventListener("click", chooseGuest);
+  // 닫기 차단 — 강제 선택 (× 없음, ESC·백드롭 핸들러 미등록)
+}
+
 // ============ 인증 (Firebase Magic Link) ============
 const AUTH_KEYS = {
   signInEmail: "workout.signInEmail",
@@ -2610,20 +2728,30 @@ function setAuthDot(state, title) {
 }
 
 function updateAuthUI() {
-  const area    = document.getElementById("auth-area");
-  const loginBtn = document.getElementById("auth-login-btn");
-  const pill    = document.getElementById("auth-user-pill");
-  const emailEl = document.getElementById("auth-email-text");
+  const area      = document.getElementById("auth-area");
+  const loginBtn  = document.getElementById("auth-login-btn");
+  const guestPill = document.getElementById("auth-guest-pill");
+  const userPill  = document.getElementById("auth-user-pill");
+  const emailEl   = document.getElementById("auth-email-text");
   if (!area) return;
+
+  if (!firebaseAuth) { area.style.display = "none"; return; }
   area.style.display = "";
+
   if (firebaseUser) {
-    loginBtn.style.display = "none";
-    pill.style.display = "";
+    loginBtn.style.display  = "none";
+    guestPill.style.display = "none";
+    userPill.style.display  = "";
     emailEl.textContent = firebaseUser.email || "(이메일 없음)";
     setAuthDot("ok");
+  } else if (getUserMode() === "guest") {
+    loginBtn.style.display  = "none";
+    guestPill.style.display = "";
+    userPill.style.display  = "none";
   } else {
-    loginBtn.style.display = "";
-    pill.style.display = "none";
+    loginBtn.style.display  = "";
+    guestPill.style.display = "none";
+    userPill.style.display  = "none";
   }
 }
 
@@ -2699,6 +2827,7 @@ function initAuth() {
   if (!window.firebaseConfig || !window.firebaseConfig.apiKey || window.firebaseConfig.apiKey.startsWith("AIzaSy...")) {
     console.warn("[auth] firebase-config.js 가 누락 또는 미작성. 로그인 비활성.");
     document.getElementById("auth-area").style.display = "none";
+    if (!getUserMode()) setUserMode("guest");
     return;
   }
 
@@ -2708,6 +2837,7 @@ function initAuth() {
   } catch (err) {
     console.error("[auth] initializeApp failed", err);
     document.getElementById("auth-area").style.display = "none";
+    if (!getUserMode()) setUserMode("guest");
     return;
   }
 
@@ -2715,6 +2845,11 @@ function initAuth() {
   onAuthStateChanged(firebaseAuth, (user) => {
     firebaseUser = user;
     updateAuthUI();
+    refreshReminderUI();
+    if (!authStateInitialized) {
+      authStateInitialized = true;
+      evaluateUserMode();
+    }
     if (user) {
       console.log("[auth] 로그인됨:", user.email);
     }
@@ -2725,6 +2860,7 @@ function initAuth() {
 
   // 4) UI 이벤트
   document.getElementById("auth-login-btn").addEventListener("click", openAuthModal);
+  document.getElementById("auth-guest-pill").addEventListener("click", openAuthModal);
   document.getElementById("auth-logout-btn").addEventListener("click", handleLogout);
   document.getElementById("auth-close-x").addEventListener("click", closeAuthModal);
   document.getElementById("auth-cancel").addEventListener("click", closeAuthModal);
@@ -2757,6 +2893,7 @@ function initPaletteSwitcher() {
 
 async function init() {
   initPaletteSwitcher();
+  initWelcome();
   initAuth();
   initBackupPanel();
   initReminder();
