@@ -117,6 +117,17 @@
   .search-results.open { display: block; }
   .search-results li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
   .search-results li:hover { background: var(--accent-soft); }
+  .search-results .search-section-header {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 10px 4px;
+    cursor: default;
+    background: transparent;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-results .search-section-header:hover { background: transparent; }
   .search-results img { width: 36px; height: 36px; object-fit: contain; border-radius: 6px; background: var(--ph); }
   .search-results .edit-btn,
   .item .edit-btn {
@@ -1114,6 +1125,19 @@ const save = (k, v) => {
 };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
+// 최근 사용 동작 (로컬 전용, 클라우드 동기화 X — 기기별 편의)
+const RECENT_KEY = "workout.recentExercises";
+const RECENT_LIMIT = 8;
+function loadRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }
+  catch { return []; }
+}
+function pushRecent(source, refId) {
+  const list = loadRecent().filter((r) => !(r.source === source && String(r.refId) === String(refId)));
+  list.unshift({ source, refId, ts: Date.now() });
+  localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_LIMIT)));
+}
+
 let exercises      = load(KEYS.exercises, []);
 let routines       = load(KEYS.routines, []);
 let seedOverrides  = load(KEYS.seedOverrides, {}); // { "0001": { name_ko, summary_ko }, ... }
@@ -1649,94 +1673,125 @@ function renderSearchResults() {
   const fCat = rtFilterCat.value;
   const fEq  = rtFilterEq.value;
   const filterActive = !!(fCat || fEq);
+  const showRecent = !q && !filterActive;
 
-  // local: 텍스트 + 카테고리 + 장비 필터
-  const localList = exercises
-        .filter((e) => {
-          if (q) {
-            const hay = [e.name, e.description, e.category, e.equipment].filter(Boolean).join(" ").toLowerCase();
-            if (!hay.includes(q)) return false;
-          }
-          if (fCat && (e.category  || "기타") !== fCat) return false;
-          if (fEq  && (e.equipment || "기타") !== fEq)  return false;
-          return true;
-        })
-        .slice(0, 20)
-        .map((e) => ({
-          source: "local", refId: e.id,
-          name: e.name, nameEn: null,
-          image: e.imageDataUrl,
-          desc: [e.category, e.equipment, e.description].filter(Boolean).join(" · "),
-        }));
+  let html = "";
 
-  // seed: 텍스트(영문 name + 한글 name_ko/summary_ko) + 카테고리·장비 필터
-  const seedList = seedExercises
-    .filter((s) => {
-      if (q) {
-        const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
-        const hay = [s.name, ko.name_ko, ko.summary_ko].filter(Boolean).join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (fCat && mapCategory(s.category)   !== fCat) return false;
-      if (fEq  && mapEquipment(s.equipment) !== fEq)  return false;
-      return true;
-    })
-    .slice(0, 50)
-    .map((s) => {
-      const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+  // 최근 사용 섹션 (검색어·필터 없을 때만)
+  let recentRows = [];
+  if (showRecent) {
+    recentRows = loadRecent().map((r) => {
+      const res = resolveExercise({ source: r.source, refId: r.refId });
+      if (!res) return null;
       return {
-        source: "seed", refId: s.id,
-        name: ko.name_ko || s.name,
-        nameEn: s.name,
-        image: SEED_BASE_URL + s.image,
-        desc: [mapTarget(s.target), mapEquipment(s.equipment)].filter(Boolean).join(" · "),
+        source: r.source, refId: r.refId,
+        name: res.name,
+        nameEn: res.nameEn,
+        image: res.image,
+        desc: res.meta || res.description || "",
       };
-    });
-
-  const merged = [...localList, ...seedList];
-
-  if (merged.length === 0) {
-    rtResults.innerHTML = `<li style="color:var(--muted); cursor:default;">검색 결과 없음</li>`;
-  } else {
-    rtResults.innerHTML = merged.map((row) => {
-      const showEn = row.nameEn && row.nameEn !== row.name;
-      return `
-      <li data-source="${row.source}" data-refid="${escapeHtml(String(row.refId))}">
-        <img src="${row.image}" alt="" />
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:600;">
-            ${escapeHtml(row.name)}
-            <span class="src-badge ${row.source}">${row.source === "seed" ? "공개" : "내 것"}</span>
-          </div>
-          ${showEn ? `<div style="font-size:10px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(row.nameEn)}</div>` : ""}
-          <div style="font-size:11px;color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(row.desc)}</div>
-        </div>
-        <button class="edit-btn" data-action="detail" title="상세 보기">상세</button>
-      </li>`;
-    }).join("");
-    rtResults.querySelectorAll("li[data-source]").forEach((li) => {
-      li.addEventListener("click", (e) => {
-        if (e.target.closest('[data-action="detail"]')) return; // 상세 버튼은 별도 처리
-        addItem(li.dataset.source, li.dataset.refid);
-        rtSearch.value = "";
-        rtResults.classList.remove("open");
-      });
-      li.querySelector('[data-action="detail"]').addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (li.dataset.source === "seed") {
-          openDictionaryDetail(li.dataset.refid);
-        } else {
-          openLocalDetail(li.dataset.refid);
-        }
-      });
-    });
+    }).filter(Boolean);
+    if (recentRows.length > 0) {
+      html += `<li class="search-section-header">최근 사용</li>`;
+      html += recentRows.map(searchRowHtml).join("");
+    }
   }
+
+  // 검색어·필터가 있을 때만 일반 검색 결과 — 비어 있으면 recent 만 노출
+  let merged = [];
+  if (!showRecent) {
+    const localList = exercises
+          .filter((e) => {
+            if (q) {
+              const hay = [e.name, e.description, e.category, e.equipment].filter(Boolean).join(" ").toLowerCase();
+              if (!hay.includes(q)) return false;
+            }
+            if (fCat && (e.category  || "기타") !== fCat) return false;
+            if (fEq  && (e.equipment || "기타") !== fEq)  return false;
+            return true;
+          })
+          .slice(0, 20)
+          .map((e) => ({
+            source: "local", refId: e.id,
+            name: e.name, nameEn: null,
+            image: e.imageDataUrl,
+            desc: [e.category, e.equipment, e.description].filter(Boolean).join(" · "),
+          }));
+
+    const seedList = seedExercises
+      .filter((s) => {
+        if (q) {
+          const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+          const hay = [s.name, ko.name_ko, ko.summary_ko].filter(Boolean).join(" ").toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (fCat && mapCategory(s.category)   !== fCat) return false;
+        if (fEq  && mapEquipment(s.equipment) !== fEq)  return false;
+        return true;
+      })
+      .slice(0, 50)
+      .map((s) => {
+        const ko = { ...(s._ko_shared || {}), ...(s._ko_user || {}) };
+        return {
+          source: "seed", refId: s.id,
+          name: ko.name_ko || s.name,
+          nameEn: s.name,
+          image: SEED_BASE_URL + s.image,
+          desc: [mapTarget(s.target), mapEquipment(s.equipment)].filter(Boolean).join(" · "),
+        };
+      });
+
+    merged = [...localList, ...seedList];
+    html += merged.map(searchRowHtml).join("");
+  }
+
+  if (!html) {
+    html = showRecent
+      ? `<li style="color:var(--muted); cursor:default;">최근 사용한 동작이 없습니다. 검색해서 추가해 보세요.</li>`
+      : `<li style="color:var(--muted); cursor:default;">검색 결과 없음</li>`;
+  }
+
+  rtResults.innerHTML = html;
+  rtResults.querySelectorAll("li[data-source]").forEach((li) => {
+    li.addEventListener("click", (e) => {
+      if (e.target.closest('[data-action="detail"]')) return;
+      addItem(li.dataset.source, li.dataset.refid);
+      rtSearch.value = "";
+      rtResults.classList.remove("open");
+    });
+    li.querySelector('[data-action="detail"]').addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (li.dataset.source === "seed") {
+        openDictionaryDetail(li.dataset.refid);
+      } else {
+        openLocalDetail(li.dataset.refid);
+      }
+    });
+  });
   rtResults.classList.add("open");
 }
 
 function addItem(source, refId) {
   currentRoutine.items.push({ source, refId, sets: 3, reps: 10, unit: "회" });
+  pushRecent(source, refId);
   renderRoutineItems();
+}
+
+function searchRowHtml(row) {
+  const showEn = row.nameEn && row.nameEn !== row.name;
+  return `
+    <li data-source="${row.source}" data-refid="${escapeHtml(String(row.refId))}">
+      <img src="${row.image}" alt="" />
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600;">
+          ${escapeHtml(row.name)}
+          <span class="src-badge ${row.source}">${row.source === "seed" ? "공개" : "내 것"}</span>
+        </div>
+        ${showEn ? `<div style="font-size:10px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(row.nameEn)}</div>` : ""}
+        <div style="font-size:11px;color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(row.desc)}</div>
+      </div>
+      <button class="edit-btn" data-action="detail" title="상세 보기">상세</button>
+    </li>`;
 }
 
 function renderRoutineItems() {
@@ -1951,6 +2006,7 @@ function renderHistory() {
       </div>
       <div class="top-actions">
         <button class="ghost" data-role="load">불러오기</button>
+        <button class="ghost" data-role="repeat" title="이 루틴을 오늘 날짜의 새 기록으로 복제">📅 오늘 복제</button>
         <button class="ghost" data-role="preview">미리보기 / JPG</button>
         <button class="danger" data-role="delete">삭제</button>
       </div>
@@ -1958,6 +2014,7 @@ function renderHistory() {
   histList.querySelectorAll(".history-row").forEach((row) => {
     const id = row.dataset.id;
     row.querySelector('[data-role="load"]').addEventListener("click", () => loadRoutine(id));
+    row.querySelector('[data-role="repeat"]').addEventListener("click", () => { quickRepeat(id); switchTab("routine"); });
     row.querySelector('[data-role="preview"]').addEventListener("click", () => openPreview(id));
     row.querySelector('[data-role="delete"]').addEventListener("click", () => deleteRoutine(id));
   });
@@ -2305,8 +2362,9 @@ function openDayDetail(dateStr, rList) {
             ${r.subCategory ? `<span class="badge" style="background:var(--ph);color:var(--muted);">+${escapeHtml(r.subCategory)}</span>` : ""}
             <span class="badge">${(r.items || []).length}개</span>
           </div>
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-load="${r.id}">불러오기</button>
+            <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-repeat="${r.id}" title="오늘 날짜로 복제">📅 오늘 복제</button>
             <button class="ghost" style="font-size:11px;padding:4px 8px;" data-day-preview="${r.id}">JPG 출력</button>
           </div>
         </div>
@@ -2326,6 +2384,13 @@ function openDayDetail(dateStr, rList) {
       loadRoutine(btn.dataset.dayLoad);
     });
   });
+  body.querySelectorAll("[data-day-repeat]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("day-detail-modal").classList.remove("open");
+      quickRepeat(btn.dataset.dayRepeat);
+      switchTab("routine");
+    });
+  });
   body.querySelectorAll("[data-day-preview]").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.getElementById("day-detail-modal").classList.remove("open");
@@ -2336,6 +2401,18 @@ function openDayDetail(dateStr, rList) {
       openPreview(btn.dataset.dayPreview);
     });
   });
+}
+
+function quickRepeat(id) {
+  // 기존 루틴을 오늘 날짜의 새 루틴으로 복제 (편집 X — 새 기록 만듦)
+  loadRoutine(id);  // 모든 UI 동기화 처리 재사용
+  currentRoutine.id = null;
+  currentRoutine.date = todayStr();
+  currentRoutine.createdAt = null;
+  editingRoutineId = null;
+  rtDate.value = currentRoutine.date;
+  document.getElementById("editing-banner").classList.remove("open");
+  // 종목 메모는 그대로 복제됨 (이전 회고 기록을 templates 처럼 사용 가능)
 }
 
 function loadRoutine(id) {
