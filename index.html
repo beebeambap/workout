@@ -389,6 +389,27 @@
   .cat-bar-fill { height: 100%; border-radius: 5px; transition: width 0.25s ease; }
   .cat-bar-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
 
+  /* 13주 대시보드 (히트맵 + 주간 볼륨) */
+  .dashboard-strip { display: flex; flex-direction: column; gap: 18px; margin-bottom: 16px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  .dash-block-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  .dash-block-title { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; }
+  .dash-block-meta  { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dash-heatmap { display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 2px; }
+  .dash-heatcell { aspect-ratio: 1 / 1; background: var(--ph); border-radius: 2px; transition: background 0.15s; cursor: default; }
+  .dash-heatcell.lvl-1 { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); cursor: pointer; }
+  .dash-heatcell.lvl-2 { background: color-mix(in srgb, var(--accent) 32%, var(--panel)); cursor: pointer; }
+  .dash-heatcell.lvl-3 { background: color-mix(in srgb, var(--accent) 55%, var(--panel)); cursor: pointer; }
+  .dash-heatcell.lvl-4 { background: color-mix(in srgb, var(--accent) 80%, var(--panel)); cursor: pointer; }
+  .dash-heatcell.future { opacity: 0.25; }
+  .dash-heatcell:hover { outline: 1px solid var(--accent); outline-offset: 1px; }
+  .dash-spark { display: block; width: 100%; height: 64px; }
+  .dash-empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  @media (max-width: 640px) {
+    .dashboard-strip { padding: 12px; }
+    .dash-heatmap { gap: 1.5px; }
+    .dash-spark { height: 52px; }
+  }
+
   /* 설정 탭 */
   .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .settings-row:last-child { border-bottom: 0; }
@@ -661,6 +682,23 @@
 
       <!-- 내 운동 기록 (캘린더) -->
       <div id="hist-panel-log" style="display:none;">
+        <div class="dashboard-strip" id="dashboard-strip">
+          <div>
+            <div class="dash-block-head">
+              <span class="dash-block-title">13주 활동</span>
+              <span class="dash-block-meta" id="dash-heatmap-meta">—</span>
+            </div>
+            <div class="dash-heatmap" id="dash-heatmap"></div>
+          </div>
+          <div>
+            <div class="dash-block-head">
+              <span class="dash-block-title">주간 볼륨 (총 세트)</span>
+              <span class="dash-block-meta" id="dash-spark-meta">—</span>
+            </div>
+            <svg id="dash-spark" viewBox="0 0 240 64" preserveAspectRatio="none" class="dash-spark"></svg>
+          </div>
+        </div>
+
         <div class="calendar-nav">
           <button id="cal-prev" aria-label="이전 달">‹</button>
           <span class="cal-month-label" id="cal-month-label"></span>
@@ -2167,12 +2205,20 @@ function filterDateMap(map, catFilter) {
   return out;
 }
 
-function computeHeatmapThresholds() {
-  // 전체 record 루틴 기준 일별 총 세트 수 분포에서 25/50/75 백분위
+function matchesCatFilter(r, catFilter) {
+  if (!catFilter) return true;
+  const c = r.category || "";
+  if (catFilter === "__none") return !c;
+  return c === catFilter;
+}
+
+function computeHeatmapThresholds(catFilter = "") {
+  // record 루틴 기준 일별 총 세트 수 분포에서 25/50/75 백분위
   const dailySets = {};
   for (const r of routines) {
     if ((r.purpose || "record") !== "record") continue;
     if (!r.date) continue;
+    if (!matchesCatFilter(r, catFilter)) continue;
     const total = (r.items || []).reduce((s, it) => s + (it.sets || 1), 0);
     if (total > 0) dailySets[r.date] = (dailySets[r.date] || 0) + total;
   }
@@ -2182,6 +2228,131 @@ function computeHeatmapThresholds() {
   }
   const pct = (p) => values[Math.max(0, Math.min(values.length - 1, Math.floor(values.length * p)))];
   return { mode: "relative", t1: pct(0.25), t2: pct(0.50), t3: pct(0.75) };
+}
+
+// ============ 13주 대시보드 (히트맵 + 주간 볼륨) ============
+function buildDailyAggregates(catFilter) {
+  const dailySets = {};
+  const dailyCardio = {};
+  for (const r of routines) {
+    if ((r.purpose || "record") !== "record") continue;
+    if (!r.date) continue;
+    if (!matchesCatFilter(r, catFilter)) continue;
+    const total = (r.items || []).reduce((s, it) => s + (it.sets || 1), 0);
+    if (total > 0) dailySets[r.date] = (dailySets[r.date] || 0) + total;
+    if (r.cardio) dailyCardio[r.date] = true;
+  }
+  return { dailySets, dailyCardio };
+}
+
+function getDashboardWindow() {
+  // 13주 = 13 cols × 7 rows. 마지막 칼럼이 현재 주 (일~토).
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startSun = new Date(today);
+  startSun.setDate(today.getDate() - today.getDay() - 12 * 7);
+  return { startSun, today };
+}
+
+function renderHeatmap13(catFilter) {
+  const grid = document.getElementById("dash-heatmap");
+  const meta = document.getElementById("dash-heatmap-meta");
+  if (!grid) return;
+  const { startSun, today } = getDashboardWindow();
+  const { dailySets, dailyCardio } = buildDailyAggregates(catFilter);
+  const thresholds = computeHeatmapThresholds(catFilter);
+
+  const fmt = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  meta.textContent = `${fmt(startSun)} → ${fmt(today)} · ${thresholds.mode === "relative" ? "상대 강도" : "고정 강도"}`;
+
+  const cells = [];
+  for (let w = 0; w < 13; w++) {
+    for (let d = 0; d < 7; d++) {
+      const cur = new Date(startSun.getTime() + (w * 7 + d) * 86400000);
+      const ds = ymd(cur);
+      const sets = dailySets[ds] || 0;
+      const hasCardio = !!dailyCardio[ds];
+      const isFuture = cur > today;
+      let lvl = 0;
+      if (sets > 0)        lvl = levelForSets(sets, thresholds);
+      else if (hasCardio)  lvl = 1;
+      const cls = isFuture
+        ? "future"
+        : (lvl > 0 ? `lvl-${lvl}` : "");
+      const tipParts = [ds];
+      if (sets > 0) tipParts.push(`${sets}세트`);
+      if (hasCardio) tipParts.push("🏃 유산소");
+      cells.push(`<div class="dash-heatcell ${cls}" data-date="${ds}" title="${tipParts.join(' · ')}"></div>`);
+    }
+  }
+  grid.innerHTML = cells.join("");
+
+  // 클릭 시 그 날짜의 day-detail 모달 열기 (record + 필터 일치만)
+  grid.querySelectorAll(".dash-heatcell.lvl-1, .dash-heatcell.lvl-2, .dash-heatcell.lvl-3, .dash-heatcell.lvl-4").forEach((cell) => {
+    cell.addEventListener("click", () => {
+      const ds = cell.dataset.date;
+      if (!ds) return;
+      const list = routines.filter((r) =>
+        (r.purpose || "record") === "record" && r.date === ds && matchesCatFilter(r, catFilter)
+      );
+      if (list.length === 0) return;
+      openDayDetail(ds, list);
+    });
+  });
+}
+
+function renderVolumeTrend(catFilter) {
+  const svg  = document.getElementById("dash-spark");
+  const meta = document.getElementById("dash-spark-meta");
+  if (!svg) return;
+  const { startSun, today } = getDashboardWindow();
+  const { dailySets } = buildDailyAggregates(catFilter);
+
+  const weekly = [];
+  for (let w = 0; w < 13; w++) {
+    let total = 0;
+    for (let d = 0; d < 7; d++) {
+      const cur = new Date(startSun.getTime() + (w * 7 + d) * 86400000);
+      if (cur > today) continue;
+      total += dailySets[ymd(cur)] || 0;
+    }
+    weekly.push(total);
+  }
+
+  const max = Math.max(1, ...weekly);
+  const sum = weekly.reduce((s, v) => s + v, 0);
+  const nonZero = weekly.filter((v) => v > 0).length;
+  const avg = nonZero > 0 ? Math.round(sum / weekly.length) : 0;
+  const cur = weekly[weekly.length - 1] || 0;
+
+  if (sum === 0) {
+    svg.innerHTML = `<text x="120" y="34" text-anchor="middle" fill="var(--muted)" font-size="11">기록이 쌓이면 트렌드가 표시됩니다</text>`;
+    meta.textContent = "—";
+    return;
+  }
+
+  const W = 240, H = 64, P = 4;
+  const points = weekly.map((v, i) => {
+    const x = P + (weekly.length === 1 ? (W - 2 * P) / 2 : (i / (weekly.length - 1)) * (W - 2 * P));
+    const y = H - P - (v / max) * (H - 2 * P);
+    return [x, y];
+  });
+  const linePath = points.map(([x, y], i) => (i === 0 ? `M ${x.toFixed(1)},${y.toFixed(1)}` : `L ${x.toFixed(1)},${y.toFixed(1)}`)).join(" ");
+  const areaPath = `${linePath} L ${points[points.length - 1][0].toFixed(1)},${H - P} L ${points[0][0].toFixed(1)},${H - P} Z`;
+  const dots = points.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === points.length - 1 ? 3 : 1.8}" fill="var(--accent)"/>`).join("");
+
+  svg.innerHTML = `
+    <path d="${areaPath}" fill="var(--accent)" opacity="0.14"/>
+    <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}
+  `;
+  meta.textContent = `이번 주 ${cur} · 평균 ${avg} · 최고 ${max}`;
+}
+
+function renderDashboard() {
+  const filter = (typeof calCategoryFilter !== "undefined") ? calCategoryFilter : "";
+  renderHeatmap13(filter);
+  renderVolumeTrend(filter);
 }
 
 function renderCalendar() {
@@ -2251,6 +2422,7 @@ function renderCalendar() {
   });
 
   renderMonthlyStats(dateMap);
+  renderDashboard();
 }
 
 function renderMonthlyStats(dateMap) {
